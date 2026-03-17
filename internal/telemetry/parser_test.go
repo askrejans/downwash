@@ -91,33 +91,6 @@ func TestParseDMSCoordErrors(t *testing.T) {
 	}
 }
 
-// ── haversineM ───────────────────────────────────────────────────────────────
-
-func TestHaversineM(t *testing.T) {
-	cases := []struct {
-		name             string
-		lat1, lon1       float64
-		lat2, lon2       float64
-		wantM, epsilonM  float64
-	}{
-		// 1 degree of longitude at equator ≈ 111 195 m
-		{"1deg lon at equator", 0, 0, 0, 1, 111_195, 200},
-		// 1 degree of latitude ≈ 111 195 m everywhere
-		{"1deg lat", 0, 0, 1, 0, 111_195, 200},
-		// Same point → 0
-		{"same point", 57.165742, 24.824664, 57.165742, 24.824664, 0, 0.001},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := haversineM(tc.lat1, tc.lon1, tc.lat2, tc.lon2)
-			if math.Abs(got-tc.wantM) > tc.epsilonM {
-				t.Errorf("haversineM(%.6f,%.6f → %.6f,%.6f) = %.2fm, want %.2f±%.2f",
-					tc.lat1, tc.lon1, tc.lat2, tc.lon2, got, tc.wantM, tc.epsilonM)
-			}
-		})
-	}
-}
 
 // ── ComputeStats ─────────────────────────────────────────────────────────────
 
@@ -165,6 +138,97 @@ func TestComputeStats(t *testing.T) {
 	}
 }
 
+func TestComputeStatsSingleFrame(t *testing.T) {
+	frames := []Frame{
+		{SampleTime: 0, Lat: 57.0, Lon: 24.0, AltAbsolute: 100, AltRelative: 50,
+			ISO: 200, ShutterSpeed: "1/1000", FNumber: 2.8, ColorTemperature: 6000},
+	}
+
+	s := ComputeStats(frames)
+	if s.FrameCount != 1 {
+		t.Errorf("FrameCount = %d, want 1", s.FrameCount)
+	}
+	if s.Duration != 0 {
+		t.Errorf("Duration = %v, want 0", s.Duration)
+	}
+	if s.DistanceM != 0 {
+		t.Errorf("DistanceM = %.2f, want 0", s.DistanceM)
+	}
+	if s.ISO != 200 {
+		t.Errorf("ISO = %d, want 200", s.ISO)
+	}
+	if s.ShutterSpeed != "1/1000" {
+		t.Errorf("ShutterSpeed = %q, want 1/1000", s.ShutterSpeed)
+	}
+	if s.FNumber != 2.8 {
+		t.Errorf("FNumber = %v, want 2.8", s.FNumber)
+	}
+	if s.ColorTemp != 6000 {
+		t.Errorf("ColorTemp = %d, want 6000", s.ColorTemp)
+	}
+	if s.GPSPointCount != 1 {
+		t.Errorf("GPSPointCount = %d, want 1", s.GPSPointCount)
+	}
+	if s.StartLat != 57.0 || s.EndLat != 57.0 {
+		t.Errorf("StartLat/EndLat wrong")
+	}
+}
+
+func TestComputeStatsZeroDt(t *testing.T) {
+	// Two frames with same SampleTime — should not panic or divide by zero.
+	frames := []Frame{
+		{SampleTime: time.Second, Lat: 0.001, Lon: 0},
+		{SampleTime: time.Second, Lat: 0.001, Lon: 0},
+		{SampleTime: 2 * time.Second, Lat: 0.0011, Lon: 0},
+	}
+	s := ComputeStats(frames)
+	if s.FrameCount != 3 {
+		t.Errorf("FrameCount = %d, want 3", s.FrameCount)
+	}
+}
+
+func TestComputeStatsGPSCount(t *testing.T) {
+	frames := []Frame{
+		{SampleTime: 0, Lat: 0, Lon: 0},     // zero GPS — should not count
+		{SampleTime: time.Second, Lat: 1, Lon: 0}, // has GPS
+		{SampleTime: 2 * time.Second, Lat: 0, Lon: 1}, // has GPS (lon only)
+	}
+	s := ComputeStats(frames)
+	if s.GPSPointCount != 2 {
+		t.Errorf("GPSPointCount = %d, want 2", s.GPSPointCount)
+	}
+}
+
+func TestParseSampleTimeMMSSWithFraction(t *testing.T) {
+	got, err := ParseSampleTime("1:30.5")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if math.Abs(got.Seconds()-90.5) > 0.01 {
+		t.Errorf("got %.2fs, want 90.5s", got.Seconds())
+	}
+}
+
+func TestParseSampleTimeLeadingWhitespace(t *testing.T) {
+	got, err := ParseSampleTime("  0.5 s  ")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if math.Abs(got.Seconds()-0.5) > 0.01 {
+		t.Errorf("got %.2fs, want 0.5s", got.Seconds())
+	}
+}
+
+func TestParseDMSCoordLeadingWhitespace(t *testing.T) {
+	got, err := ParseDMSCoord(`  57 deg 9' 56.67" N  `)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if math.Abs(got-57.165742) > 0.001 {
+		t.Errorf("got %.6f, want ~57.165742", got)
+	}
+}
+
 func TestComputeStatsGPSJitterFiltered(t *testing.T) {
 	// A teleportation spike (>50 m) should be excluded from distance.
 	frames := []Frame{
@@ -179,5 +243,34 @@ func TestComputeStatsGPSJitterFiltered(t *testing.T) {
 	// Only the last segment (~11 m) should contribute.
 	if s.DistanceM > 100 {
 		t.Errorf("GPS spike not filtered: DistanceM = %.2f, want < 100", s.DistanceM)
+	}
+}
+
+func TestComputeStatsSpeedFilter(t *testing.T) {
+	// Simulate GPS acquisition noise: small position error at high sample
+	// rate producing implausible speed (e.g. 2 m in 33 ms = 60 m/s).
+	// This should be filtered by MaxPlausibleSpeedMS.
+	latPerM := 1.0 / 111_195.0
+	frames := []Frame{
+		{SampleTime: 0, Lat: 0, Lon: 0, AltAbsolute: 50, AltRelative: 10},
+		// 2 m in 33 ms = 60.6 m/s — GPS noise, should be filtered.
+		{SampleTime: 33 * time.Millisecond, Lat: latPerM * 2, Lon: 0,
+			AltAbsolute: 50, AltRelative: 10},
+		// Normal flight: 10 m in 1 s = 10 m/s — should count.
+		{SampleTime: 1033 * time.Millisecond, Lat: latPerM * 12, Lon: 0,
+			AltAbsolute: 50, AltRelative: 10},
+		{SampleTime: 2033 * time.Millisecond, Lat: latPerM * 22, Lon: 0,
+			AltAbsolute: 50, AltRelative: 10},
+	}
+
+	s := ComputeStats(frames)
+	// Max speed should be ~10 m/s (the normal frames), not ~60 m/s.
+	if s.MaxSpeedMS > 15 {
+		t.Errorf("speed filter failed: MaxSpeedMS = %.2f, want < 15", s.MaxSpeedMS)
+	}
+	// The 2 m GPS noise segment should be excluded from distance.
+	// Only the two 10 m normal segments should count ≈ 20 m.
+	if s.DistanceM > 25 {
+		t.Errorf("noisy segment included: DistanceM = %.2f, want ~20", s.DistanceM)
 	}
 }

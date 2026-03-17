@@ -59,6 +59,12 @@ func TestMarkdownCreatesFile(t *testing.T) {
 			t.Errorf("markdown missing %q", want)
 		}
 	}
+	// Ensure no HTML tags or garbled encoding.
+	for _, bad := range []string{"<table>", "<tr>", "<td>", "<sub>", "&deg;", "&amp;", "&copy;", "&mdash;", "\u00c2"} {
+		if strings.Contains(content, bad) {
+			t.Errorf("markdown contains unwanted HTML/entity: %q", bad)
+		}
+	}
 }
 
 func TestMarkdownEmptyStats(t *testing.T) {

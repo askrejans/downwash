@@ -23,12 +23,12 @@ import (
 // ---------- palette ---------------------------------------------------------
 
 var (
-	colBackground = color.RGBA{R: 18, G: 18, B: 28, A: 255}   // near-black
-	colGrid       = color.RGBA{R: 50, G: 50, B: 70, A: 255}   // dim grid lines
-	colASL        = color.RGBA{R: 77, G: 166, B: 255, A: 255} // sky blue
-	colAGL        = color.RGBA{R: 50, G: 220, B: 130, A: 255} // green
-	colAxes       = color.RGBA{R: 200, G: 200, B: 220, A: 255}
-	colTitle      = color.RGBA{R: 230, G: 230, B: 255, A: 255}
+	colBackground = color.RGBA{R: 14, G: 17, B: 23, A: 255}   // rich dark
+	colGrid       = color.RGBA{R: 36, G: 41, B: 52, A: 255}   // subtle grid
+	colASL        = color.RGBA{R: 99, G: 155, B: 255, A: 255}  // soft steel blue
+	colAGL        = color.RGBA{R: 56, G: 203, B: 137, A: 255}  // muted emerald
+	colAxes       = color.RGBA{R: 140, G: 150, B: 175, A: 255} // soft grey-blue
+	colTitle      = color.RGBA{R: 200, G: 210, B: 235, A: 255} // subtle light
 )
 
 // ---------- AltitudeProfile -------------------------------------------------
@@ -42,7 +42,7 @@ func AltitudeProfile(frames []telemetry.Frame, title, outputPath string) error {
 
 	aslPts, aglPts := buildAltPts(frames)
 
-	pASL, err := newDarkPlot(title+" — Altitude ASL", "Time (s)", "Altitude ASL (m)")
+	pASL, err := newDarkPlot(title+" \u2014 Altitude ASL", "Time (s)", "Altitude ASL (m)")
 	if err != nil {
 		return fmt.Errorf("chart: create ASL plot: %w", err)
 	}
@@ -58,7 +58,7 @@ func AltitudeProfile(frames []telemetry.Frame, title, outputPath string) error {
 		return fmt.Errorf("chart: AGL line: %w", err)
 	}
 
-	return saveTwoPanel(pASL, pAGL, 1200, 600, outputPath)
+	return saveTwoPanel(pASL, pAGL, 1600, 900, outputPath)
 }
 
 // ---------- helpers ---------------------------------------------------------
@@ -82,27 +82,30 @@ func buildAltPts(frames []telemetry.Frame) (asl, agl plotter.XYs) {
 }
 
 // newDarkPlot creates a gonum plot styled with the dark aviation palette.
-// Grid lines are added as a plotter.Grid so the axis structs are not set
-// directly (the GridLineStyle field was removed in gonum/plot v0.14+).
 func newDarkPlot(title, xLabel, yLabel string) (*plot.Plot, error) {
 	p := plot.New()
 
 	p.Title.Text = title
 	p.Title.TextStyle.Color = colTitle
-	p.Title.TextStyle.Font.Size = vg.Points(12)
+	p.Title.TextStyle.Font.Size = vg.Points(14)
+	p.Title.Padding = vg.Points(8)
 
 	p.X.Label.Text = xLabel
 	p.Y.Label.Text = yLabel
 	for _, ax := range []*plot.Axis{&p.X, &p.Y} {
 		ax.Label.TextStyle.Color = colAxes
+		ax.Label.TextStyle.Font.Size = vg.Points(11)
 		ax.LineStyle.Color = colAxes
+		ax.LineStyle.Width = vg.Points(0.8)
 		ax.Tick.LineStyle.Color = colAxes
+		ax.Tick.LineStyle.Width = vg.Points(0.5)
 		ax.Tick.Label.Color = colAxes
+		ax.Tick.Label.Font.Size = vg.Points(10)
 	}
 
 	p.BackgroundColor = colBackground
 
-	// Add grid as a separate plotter.
+	// Subtle grid.
 	g := plotter.NewGrid()
 	g.Vertical = vgdraw.LineStyle{Color: colGrid, Width: vg.Points(0.5)}
 	g.Horizontal = vgdraw.LineStyle{Color: colGrid, Width: vg.Points(0.5)}
@@ -111,24 +114,37 @@ func newDarkPlot(title, xLabel, yLabel string) (*plot.Plot, error) {
 	return p, nil
 }
 
-// addLine draws a coloured line and a semi-transparent fill beneath it.
+// addLine draws a coloured line and a subtle fill beneath it.
+// The fill is a dark, pre-mixed colour (not alpha-blended) to avoid
+// gonum/plot's unreliable alpha compositing.
 func addLine(p *plot.Plot, pts plotter.XYs, c color.RGBA) error {
+	// Pre-mix fill colour: blend 12% of the line colour into the background.
+	const mix = 0.12
+	bg := colBackground
+	fillCol := color.RGBA{
+		R: uint8(float64(c.R)*mix + float64(bg.R)*(1-mix)),
+		G: uint8(float64(c.G)*mix + float64(bg.G)*(1-mix)),
+		B: uint8(float64(c.B)*mix + float64(bg.B)*(1-mix)),
+		A: 255,
+	}
+
+	// Fill area first (behind the line).
+	fill, err := plotter.NewPolygon(fillPolygon(pts))
+	if err != nil {
+		return err
+	}
+	fill.Color = fillCol
+	fill.LineStyle.Width = 0
+	p.Add(fill)
+
+	// Main line on top.
 	line, err := plotter.NewLine(pts)
 	if err != nil {
 		return err
 	}
 	line.LineStyle.Color = c
-	line.LineStyle.Width = vg.Points(1.5)
+	line.LineStyle.Width = vg.Points(2.5)
 	p.Add(line)
-
-	// Closed polygon for the fill area.
-	fill, err := plotter.NewPolygon(fillPolygon(pts))
-	if err != nil {
-		return err
-	}
-	fill.Color = color.RGBA{R: c.R, G: c.G, B: c.B, A: 35}
-	fill.LineStyle.Width = 0
-	p.Add(fill)
 
 	return nil
 }
@@ -162,14 +178,12 @@ func saveTwoPanel(top, bot *plot.Plot, widthPx, heightPx int, outputPath string)
 	combined := image.NewRGBA(image.Rect(0, 0, widthPx, heightPx))
 	draw.Draw(combined, combined.Bounds(), &image.Uniform{colBackground}, image.Point{}, draw.Src)
 
-	// Scale top panel to top half.
 	topBounds := imgTop.Bounds()
 	for y := 0; y < heightPx/2 && y < topBounds.Max.Y; y++ {
 		for x := 0; x < widthPx && x < topBounds.Max.X; x++ {
 			combined.Set(x, y, imgTop.At(x, y))
 		}
 	}
-	// Scale bottom panel to bottom half.
 	botBounds := imgBot.Bounds()
 	for y := 0; y < heightPx/2 && y < botBounds.Max.Y; y++ {
 		for x := 0; x < widthPx && x < botBounds.Max.X; x++ {

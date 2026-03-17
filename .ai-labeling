@@ -1,0 +1,5 @@
+{
+  "training": "disallow",
+  "scraping": "disallow",
+  "indexing": "disallow"
+}

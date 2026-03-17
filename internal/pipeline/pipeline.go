@@ -18,6 +18,65 @@ import (
 	"github.com/askrejans/downwash/internal/telemetry"
 )
 
+// StepName identifies a pipeline processing step.
+type StepName string
+
+const (
+	StepTelemetry  StepName = "Extracting telemetry"
+	StepCodec      StepName = "Probing codec"
+	StepGPX        StepName = "Writing GPX track"
+	StepAltChart   StepName = "Rendering altitude chart"
+	StepTrackChart StepName = "Rendering track chart"
+	StepMarkdown   StepName = "Writing Markdown report"
+	StepPDF        StepName = "Generating PDF briefing"
+	StepTranscode  StepName = "Transcoding video"
+)
+
+// AllSteps returns the ordered list of pipeline steps. If transcode is false,
+// the transcode step is omitted. Steps disabled by skip flags are excluded.
+func AllSteps(transcode bool) []StepName {
+	return FilteredSteps(Options{Transcode: transcode})
+}
+
+// FilteredSteps returns steps based on the full options, excluding skipped ones.
+func FilteredSteps(opts Options) []StepName {
+	var steps []StepName
+	if !opts.SkipTelemetry {
+		steps = append(steps, StepTelemetry)
+	}
+	steps = append(steps, StepCodec)
+	if !opts.SkipGPX {
+		steps = append(steps, StepGPX)
+	}
+	if !opts.SkipCharts {
+		steps = append(steps, StepAltChart, StepTrackChart)
+	}
+	if !opts.SkipMarkdown {
+		steps = append(steps, StepMarkdown)
+	}
+	if !opts.SkipPDF {
+		steps = append(steps, StepPDF)
+	}
+	if opts.Transcode {
+		steps = append(steps, StepTranscode)
+	}
+	return steps
+}
+
+// StepStatus reports the current state of a pipeline step.
+type StepStatus int
+
+const (
+	StepPending StepStatus = iota
+	StepRunning
+	StepDone
+	StepSkipped
+	StepFailed
+)
+
+// ProgressFunc is called by the pipeline to report step transitions.
+type ProgressFunc func(step StepName, status StepStatus, msg string)
+
 // Options configures a single-video pipeline run.
 type Options struct {
 	// InputPath is the source DJI MP4 video file.
@@ -36,8 +95,19 @@ type Options struct {
 	// SkipTelemetry skips exiftool extraction when set (useful for codec-only
 	// test runs or when exiftool is not installed).
 	SkipTelemetry bool
+	// SkipGPX skips GPX track file generation.
+	SkipGPX bool
+	// SkipCharts skips altitude and track chart PNG generation.
+	SkipCharts bool
+	// SkipMarkdown skips Markdown report generation.
+	SkipMarkdown bool
+	// SkipPDF skips PDF briefing generation.
+	SkipPDF bool
 	// Logger is used for all pipeline log output. If nil, slog.Default() is used.
 	Logger *slog.Logger
+	// OnProgress is an optional callback invoked when pipeline steps start or
+	// complete. If nil, no callbacks are made.
+	OnProgress ProgressFunc
 }
 
 // Result describes the artefacts produced by a successful pipeline run.
@@ -71,6 +141,12 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		logger = slog.Default()
 	}
 
+	notify := func(step StepName, status StepStatus, msg string) {
+		if opts.OnProgress != nil {
+			opts.OnProgress(step, status, msg)
+		}
+	}
+
 	// ── 1. Setup ─────────────────────────────────────────────────────────────
 	if _, err := os.Stat(opts.InputPath); err != nil {
 		return Result{}, fmt.Errorf("pipeline: input not found: %w", err)
@@ -92,13 +168,18 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	var codec string
 
 	if !opts.SkipTelemetry {
+		notify(StepTelemetry, StepRunning, "")
 		logger.Info("extracting telemetry", "file", opts.InputPath)
 		var err error
 		frames, err = telemetry.Extract(ctx, opts.InputPath, logger)
 		if err != nil {
-			// Non-fatal: log the warning and continue without telemetry.
 			logger.Warn("telemetry extraction failed (skipping)", "err", err)
+			notify(StepTelemetry, StepFailed, err.Error())
+		} else {
+			notify(StepTelemetry, StepDone, fmt.Sprintf("%d frames", len(frames)))
 		}
+	} else {
+		notify(StepTelemetry, StepSkipped, "")
 	}
 
 	if len(frames) > 0 {
@@ -110,66 +191,101 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	}
 
 	// Probe codec from the source file.
+	notify(StepCodec, StepRunning, "")
 	detectedCodec, err := ffmpeg.ProbeCodec(ctx, opts.InputPath)
 	if err != nil {
 		logger.Warn("codec probe failed", "err", err)
+		notify(StepCodec, StepFailed, err.Error())
 	} else {
 		codec = detectedCodec
+		notify(StepCodec, StepDone, codec)
 	}
 
 	// ── 3. GPX ───────────────────────────────────────────────────────────────
-	if len(frames) > 0 {
+	if opts.SkipGPX {
+		notify(StepGPX, StepSkipped, "disabled")
+	} else if len(frames) > 0 {
+		notify(StepGPX, StepRunning, "")
 		gpxPath := out("_track.gpx")
 		logger.Info("writing GPX", "path", gpxPath)
 		if err := gpx.Write(frames, base, gpxPath); err != nil {
 			logger.Warn("GPX write failed", "err", err)
+			notify(StepGPX, StepFailed, err.Error())
 		} else {
 			res.GPXPath = gpxPath
+			notify(StepGPX, StepDone, gpxPath)
 		}
+	} else {
+		notify(StepGPX, StepSkipped, "no frames")
 	}
 
 	// ── 4. Altitude profile chart ────────────────────────────────────────────
-	if len(frames) > 0 {
+	if opts.SkipCharts {
+		notify(StepAltChart, StepSkipped, "disabled")
+		notify(StepTrackChart, StepSkipped, "disabled")
+	} else if len(frames) > 0 {
+		notify(StepAltChart, StepRunning, "")
 		altPath := out("_altitude.png")
 		logger.Info("rendering altitude chart", "path", altPath)
 		if err := chart.AltitudeProfile(frames, base, altPath); err != nil {
 			logger.Warn("altitude chart failed", "err", err)
+			notify(StepAltChart, StepFailed, err.Error())
 		} else {
 			res.AltPNGPath = altPath
+			notify(StepAltChart, StepDone, altPath)
 		}
-	}
 
-	// ── 5. Flight track chart ────────────────────────────────────────────────
-	if len(frames) > 0 {
+		// ── 5. Flight track chart ────────────────────────────────────────────
+		notify(StepTrackChart, StepRunning, "")
 		trackPath := out("_track.png")
 		logger.Info("rendering track chart", "path", trackPath)
 		if err := chart.FlightTrack(frames, base, trackPath); err != nil {
 			logger.Warn("track chart failed", "err", err)
+			notify(StepTrackChart, StepFailed, err.Error())
 		} else {
 			res.TrackPNGPath = trackPath
+			notify(StepTrackChart, StepDone, trackPath)
 		}
+	} else {
+		notify(StepAltChart, StepSkipped, "no frames")
+		notify(StepTrackChart, StepSkipped, "no frames")
 	}
 
 	// ── 6. Markdown report ───────────────────────────────────────────────────
-	mdPath := out("_report.md")
-	logger.Info("writing markdown report", "path", mdPath)
-	if err := report.Markdown(stats, base, codec, mdPath); err != nil {
-		logger.Warn("markdown report failed", "err", err)
+	if opts.SkipMarkdown {
+		notify(StepMarkdown, StepSkipped, "disabled")
 	} else {
-		res.MarkdownPath = mdPath
+		notify(StepMarkdown, StepRunning, "")
+		mdPath := out("_report.md")
+		logger.Info("writing markdown report", "path", mdPath)
+		if err := report.Markdown(stats, base, codec, mdPath); err != nil {
+			logger.Warn("markdown report failed", "err", err)
+			notify(StepMarkdown, StepFailed, err.Error())
+		} else {
+			res.MarkdownPath = mdPath
+			notify(StepMarkdown, StepDone, mdPath)
+		}
 	}
 
 	// ── 7. PDF briefing ──────────────────────────────────────────────────────
-	pdfPath := out("_briefing.pdf")
-	logger.Info("generating PDF briefing", "path", pdfPath)
-	if err := report.PDF(stats, base, codec, res.AltPNGPath, res.TrackPNGPath, pdfPath); err != nil {
-		logger.Warn("PDF briefing failed", "err", err)
+	if opts.SkipPDF {
+		notify(StepPDF, StepSkipped, "disabled")
 	} else {
-		res.PDFPath = pdfPath
+		notify(StepPDF, StepRunning, "")
+		pdfPath := out("_briefing.pdf")
+		logger.Info("generating PDF briefing", "path", pdfPath)
+		if err := report.PDF(stats, base, codec, res.AltPNGPath, res.TrackPNGPath, pdfPath); err != nil {
+			logger.Warn("PDF briefing failed", "err", err)
+			notify(StepPDF, StepFailed, err.Error())
+		} else {
+			res.PDFPath = pdfPath
+			notify(StepPDF, StepDone, pdfPath)
+		}
 	}
 
 	// ── 8. Video transcode ───────────────────────────────────────────────────
 	if opts.Transcode {
+		notify(StepTranscode, StepRunning, "")
 		videoCodec := opts.TranscodeCodec
 		if videoCodec == "" {
 			videoCodec = "h264"
@@ -190,9 +306,11 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			Logger:     logger,
 		})
 		if err != nil {
+			notify(StepTranscode, StepFailed, err.Error())
 			return res, fmt.Errorf("pipeline: transcode: %w", err)
 		}
 		res.VideoPath = transPath
+		notify(StepTranscode, StepDone, transPath)
 	}
 
 	return res, nil

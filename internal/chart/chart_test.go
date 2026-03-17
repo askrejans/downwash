@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/askrejans/downwash/internal/geo"
 	"github.com/askrejans/downwash/internal/telemetry"
 )
 
@@ -118,10 +119,10 @@ func TestFillPolygonEmpty(t *testing.T) {
 
 func TestHaversineM(t *testing.T) {
 	// 1 degree of latitude ≈ 111 195 m.
-	got := haversineM(0, 0, 1, 0)
+	got := geo.HaversineM(0, 0, 1, 0)
 	want := 111_195.0
 	eps := 200.0
 	if got < want-eps || got > want+eps {
-		t.Errorf("haversineM(1 deg lat) = %.0f, want %.0f±%.0f", got, want, eps)
+		t.Errorf("HaversineM(1 deg lat) = %.0f, want %.0f±%.0f", got, want, eps)
 	}
 }

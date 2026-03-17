@@ -90,7 +90,8 @@ func syntheticFlight() []telemetry.Frame {
 
 	startTime := time.Date(2025, 6, 15, 10, 0, 0, 0, time.UTC)
 
-	totalFrames := int(durationSec * fps)
+	fpsF := float64(fps)
+	totalFrames := int(float64(durationSec) * fpsF)
 	frames := make([]telemetry.Frame, 0, totalFrames)
 
 	for i := 0; i < totalFrames; i++ {

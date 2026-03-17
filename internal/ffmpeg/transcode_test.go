@@ -1,7 +1,6 @@
 package ffmpeg
 
 import (
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -18,9 +17,8 @@ func TestTranscodeErrorString(t *testing.T) {
 	}
 }
 
-// TestMaxrateBufsizeCalculation mirrors the calculation in Transcode() and
-// verifies maxrate = 4/3 × bitrate, bufsize = 2 × bitrate.
-func TestMaxrateBufsizeCalculation(t *testing.T) {
+// TestParseBitrateParams verifies maxrate = 4/3 × bitrate, bufsize = 2 × bitrate.
+func TestParseBitrateParams(t *testing.T) {
 	cases := []struct {
 		bitrate     string
 		wantMaxrate string
@@ -30,21 +28,33 @@ func TestMaxrateBufsizeCalculation(t *testing.T) {
 		{"8M", "10M", "16M"},
 		{"20M", "26M", "40M"},
 		{"6M", "8M", "12M"},
+		{"8000K", "10666K", "16000K"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.bitrate, func(t *testing.T) {
-			unit := strings.ToUpper(string(tc.bitrate[len(tc.bitrate)-1]))
-			n, _ := strconv.Atoi(strings.TrimRight(tc.bitrate, "MmKk"))
-
-			maxrate := strconv.Itoa(n*4/3) + unit
-			bufsize := strconv.Itoa(n*2) + unit
-
+			maxrate, bufsize, err := parseBitrateParams(tc.bitrate)
+			if err != nil {
+				t.Fatalf("parseBitrateParams(%q) error: %v", tc.bitrate, err)
+			}
 			if maxrate != tc.wantMaxrate {
 				t.Errorf("maxrate(%s) = %s, want %s", tc.bitrate, maxrate, tc.wantMaxrate)
 			}
 			if bufsize != tc.wantBufsize {
 				t.Errorf("bufsize(%s) = %s, want %s", tc.bitrate, bufsize, tc.wantBufsize)
+			}
+		})
+	}
+}
+
+// TestParseBitrateParamsErrors verifies invalid bitrate strings are rejected.
+func TestParseBitrateParamsErrors(t *testing.T) {
+	bad := []string{"", "M", "abc", "15", "0M", "-5M"}
+	for _, s := range bad {
+		t.Run(s, func(t *testing.T) {
+			_, _, err := parseBitrateParams(s)
+			if err == nil {
+				t.Errorf("parseBitrateParams(%q) expected error, got nil", s)
 			}
 		})
 	}

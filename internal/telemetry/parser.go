@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/askrejans/downwash/internal/geo"
 )
 
 // Frame holds per-video-frame telemetry decoded from the DJI djmd protobuf
@@ -141,16 +143,19 @@ func parseCSVLine(line string) (Frame, error) {
 		return Frame{}, fmt.Errorf("longitude: %w", err)
 	}
 
-	altASL, _ := strconv.ParseFloat(parts[4], 64)
-	altAGL, _ := strconv.ParseFloat(parts[5], 64)
-	roll, _ := strconv.ParseFloat(parts[6], 64)
-	pitch, _ := strconv.ParseFloat(parts[7], 64)
-	yaw, _ := strconv.ParseFloat(parts[8], 64)
-	gimbalPitch, _ := strconv.ParseFloat(parts[9], 64)
-	gimbalYaw, _ := strconv.ParseFloat(parts[10], 64)
-	iso, _ := strconv.Atoi(parts[11])
-	fnum, _ := strconv.ParseFloat(parts[13], 64)
-	colorTemp, _ := strconv.Atoi(parts[14])
+	// Numeric telemetry fields default to zero on parse failure.
+	// These fields are frequently blank in DJI metadata, so errors are
+	// expected and non-fatal.
+	altASL := parseFloat(parts[4])
+	altAGL := parseFloat(parts[5])
+	roll := parseFloat(parts[6])
+	pitch := parseFloat(parts[7])
+	yaw := parseFloat(parts[8])
+	gimbalPitch := parseFloat(parts[9])
+	gimbalYaw := parseFloat(parts[10])
+	iso, _ := strconv.Atoi(strings.TrimSpace(parts[11]))
+	fnum := parseFloat(parts[13])
+	colorTemp, _ := strconv.Atoi(strings.TrimSpace(parts[14]))
 
 	return Frame{
 		SampleTime:       sampleTime,
@@ -168,6 +173,13 @@ func parseCSVLine(line string) (Frame, error) {
 		FNumber:          fnum,
 		ColorTemperature: colorTemp,
 	}, nil
+}
+
+// parseFloat is a lenient float parser for DJI telemetry fields that are
+// frequently blank or contain non-numeric markers. Returns 0 on failure.
+func parseFloat(s string) float64 {
+	v, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return v
 }
 
 // ParseSampleTime parses the SampleTime field from exiftool output.
@@ -246,19 +258,12 @@ func ParseDMSCoord(s string) (float64, error) {
 	return decimal, nil
 }
 
-// haversineM returns the great-circle distance in metres between two WGS-84 points.
-func haversineM(lat1, lon1, lat2, lon2 float64) float64 {
-	const R = 6_371_000.0
-	p := math.Pi / 180.0
-	a := math.Sin((lat2-lat1)*p/2)*math.Sin((lat2-lat1)*p/2) +
-		math.Cos(lat1*p)*math.Cos(lat2*p)*
-			math.Sin((lon2-lon1)*p/2)*math.Sin((lon2-lon1)*p/2)
-	return 2 * R * math.Asin(math.Sqrt(a))
-}
 
 // ComputeStats derives aggregate FlightStats from a parsed frame slice.
-// GPS jitter spikes (>50 m between consecutive frames) are excluded from
-// distance and speed calculations.
+// GPS jitter spikes (>50 m between consecutive frames) and implausible
+// instantaneous speeds (>50 m/s) are excluded from distance and speed
+// calculations. This filters both teleportation artefacts and GPS
+// acquisition noise at the start of a flight.
 func ComputeStats(frames []Frame) FlightStats {
 	if len(frames) == 0 {
 		return FlightStats{}
@@ -311,14 +316,21 @@ func ComputeStats(frames []Frame) FlightStats {
 			if dt <= 0 {
 				dt = prevDt
 			}
-			d := haversineM(prev.Lat, prev.Lon, f.Lat, f.Lon)
-			if d < 50 { // ignore GPS teleportation spikes
-				s.DistanceM += d
+			d := geo.HaversineM(prev.Lat, prev.Lon, f.Lat, f.Lon)
+			if d < geo.MaxGPSJitterM { // ignore GPS teleportation spikes
 				if dt > 0 {
 					spd := d / dt
+					if spd > geo.MaxPlausibleSpeedMS {
+						// GPS acquisition noise — small position error at
+						// high sample rate produces implausible speed.
+						continue
+					}
+					s.DistanceM += d
 					if spd > s.MaxSpeedMS {
 						s.MaxSpeedMS = spd
 					}
+				} else {
+					s.DistanceM += d
 				}
 			}
 			prevDt = dt

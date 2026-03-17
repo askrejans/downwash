@@ -62,11 +62,12 @@ func Transcode(ctx context.Context, opts Options) error {
 		libCodec = "libx265"
 	}
 
-	// Parse bitrate number for maxrate/bufsize calculation.
-	bitrateNum, _ := strconv.Atoi(strings.TrimRight(bitrate, "MmKk"))
-	unit := strings.ToUpper(string(bitrate[len(bitrate)-1]))
-	maxrate := fmt.Sprintf("%d%s", bitrateNum*4/3, unit)
-	bufsize := fmt.Sprintf("%d%s", bitrateNum*2, unit)
+	// Parse bitrate number and unit suffix for maxrate/bufsize calculation.
+	// Expected format: "<number><M|K>" e.g. "15M", "8000K".
+	maxrate, bufsize, err := parseBitrateParams(bitrate)
+	if err != nil {
+		return fmt.Errorf("ffmpeg: invalid bitrate %q: %w", bitrate, err)
+	}
 
 	args := []string{
 		"-y",
@@ -118,6 +119,26 @@ func Transcode(ctx context.Context, opts Options) error {
 		return fmt.Errorf("ffmpeg: wait: %w", err)
 	}
 	return nil
+}
+
+// parseBitrateParams extracts maxrate (4/3 x bitrate) and bufsize (2 x bitrate)
+// from a bitrate string like "15M" or "8000K". Returns an error if the format
+// is not recognised.
+func parseBitrateParams(bitrate string) (maxrate, bufsize string, err error) {
+	if len(bitrate) < 2 {
+		return "", "", fmt.Errorf("bitrate string too short: %q", bitrate)
+	}
+	unit := strings.ToUpper(string(bitrate[len(bitrate)-1]))
+	if unit != "M" && unit != "K" {
+		return "", "", fmt.Errorf("unsupported bitrate unit %q (expected M or K)", unit)
+	}
+	num, parseErr := strconv.Atoi(bitrate[:len(bitrate)-1])
+	if parseErr != nil || num <= 0 {
+		return "", "", fmt.Errorf("non-numeric bitrate value in %q", bitrate)
+	}
+	maxrate = fmt.Sprintf("%d%s", num*4/3, unit)
+	bufsize = fmt.Sprintf("%d%s", num*2, unit)
+	return maxrate, bufsize, nil
 }
 
 // ProbeCodec returns the codec name of the first video stream in videoPath

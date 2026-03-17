@@ -5,16 +5,12 @@ package gpx
 import (
 	"encoding/xml"
 	"fmt"
-	"math"
 	"os"
 	"time"
 
+	"github.com/askrejans/downwash/internal/geo"
 	"github.com/askrejans/downwash/internal/telemetry"
 )
-
-// maxGPSJitterM is the maximum per-segment distance (metres) before a GPS
-// point is considered a jitter spike and dropped from the track.
-const maxGPSJitterM = 50.0
 
 // targetHz is the approximate trackpoint density to write (1 Hz = one point
 // per second). Drone telemetry is captured at ~30 Hz; we downsample to avoid
@@ -127,7 +123,7 @@ func buildPoints(frames []telemetry.Frame) []trackPoint {
 	}
 
 	var pts []trackPoint
-	for i, f := range sampled {
+	for _, f := range sampled {
 		if f.Lat == 0 && f.Lon == 0 {
 			continue // no GPS fix
 		}
@@ -135,17 +131,15 @@ func buildPoints(frames []telemetry.Frame) []trackPoint {
 		// Jitter filter: skip if jump from the previous accepted point is huge.
 		if len(pts) > 0 {
 			prev := pts[len(pts)-1]
-			d := haversineM(prev.Lat, prev.Lon, f.Lat, f.Lon)
-			if d > maxGPSJitterM {
+			d := geo.HaversineM(prev.Lat, prev.Lon, f.Lat, f.Lon)
+			if d > geo.MaxGPSJitterM {
 				continue
 			}
 		}
-		_ = i
-
 		pt := trackPoint{
-			Lat: round6(f.Lat),
-			Lon: round6(f.Lon),
-			Ele: round2(f.AltAbsolute),
+			Lat: geo.Round6(f.Lat),
+			Lon: geo.Round6(f.Lon),
+			Ele: geo.Round2(f.AltAbsolute),
 			Desc: fmt.Sprintf("AGL %.1fm | Roll %.1f° Pitch %.1f° Yaw %.1f°",
 				f.AltRelative, f.Roll, f.Pitch, f.Yaw),
 		}
@@ -157,14 +151,3 @@ func buildPoints(frames []telemetry.Frame) []trackPoint {
 	return pts
 }
 
-func haversineM(lat1, lon1, lat2, lon2 float64) float64 {
-	const R = 6_371_000.0
-	p := math.Pi / 180.0
-	a := math.Sin((lat2-lat1)*p/2)*math.Sin((lat2-lat1)*p/2) +
-		math.Cos(lat1*p)*math.Cos(lat2*p)*
-			math.Sin((lon2-lon1)*p/2)*math.Sin((lon2-lon1)*p/2)
-	return 2 * R * math.Asin(math.Sqrt(a))
-}
-
-func round6(v float64) float64 { return math.Round(v*1e6) / 1e6 }
-func round2(v float64) float64 { return math.Round(v*100) / 100 }

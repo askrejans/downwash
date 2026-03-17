@@ -10,19 +10,45 @@ dist/
 # Go toolchain
 *.test
 *.out
+*.exe~
 vendor/
+coverage.html
+coverage.txt
 
 # goreleaser
 dist/
 
 # macOS
 .DS_Store
-*.swp
+._*
+.Spotlight-V100
+.Trashes
 
-# Editor
+# Linux
+*~
+\#*\#
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editor / IDE
 .vscode/
 .idea/
 *.iml
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
 
 # Output artefacts (keep samples/)
 *.gpx

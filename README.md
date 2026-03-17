@@ -6,6 +6,8 @@
 
 > *Downwash* is the aviation term for the air pushed downward by a rotor — your drone's data, pushed straight to you.
 
+> **Tested with:** DJI Mini 4 Pro
+
 ---
 
 ## Features
@@ -13,11 +15,14 @@
 - **Telemetry extraction** — reads the DJI djmd protobuf stream via [exiftool](https://exiftool.org), parsing GPS, altitude, attitude, and camera settings at ~30 Hz
 - **GPX 1.1 track file** — compatible with Google Earth, Garmin Basecamp, and any GPX-capable mapping tool
 - **Altitude profile chart** — dual-panel PNG: altitude ASL and AGL over time, dark aviation theme
-- **Flight track map** — top-down GPS path rendered to PNG with start/end markers
+- **Flight track map** — top-down GPS path over dark OSM map tiles ([CartoDB dark_matter](https://carto.com/)), with automatic fallback to plain dark chart if tiles are unavailable
 - **Markdown report** — structured summary of flight statistics, GPS, camera settings
 - **PDF post-flight briefing** — three-page A4 landscape PDF with cover stats, altitude profile, and detailed telemetry table
 - **Video transcode** — optional re-encode to H.264 (AVC) or H.265 (HEVC) at a target bitrate via ffmpeg
-- **Batch processing** — process an entire SD-card directory in one command
+- **Interactive TUI** — terminal interface with file picker, options menu (toggle outputs, configure transcoding), real-time pipeline progress, and styled output (powered by [Bubble Tea](https://github.com/charmbracelet/bubbletea))
+- **Configurable outputs** — choose which artefacts to produce: GPX, charts, markdown, PDF — all toggleable from the TUI options menu or via skip flags
+- **Batch processing** — process an entire SD-card directory in one command; select a folder directly in the TUI file picker with `s`
+- **Scriptable** — `--no-tui` flag disables the interactive interface for CI/CD pipelines and shell scripting
 - **Cross-platform** — static binaries for macOS (arm64/amd64), Linux (amd64), Windows (amd64/arm64)
 
 ---
@@ -37,19 +42,19 @@ Both tools must be available on `$PATH`. If they are missing, downwash will log 
 
 ### Download a pre-built binary
 
-Grab the latest release for your platform from the [Releases page](https://github.com/arvis/downwash/releases):
+Grab the latest release for your platform from the [Releases page](https://github.com/askrejans/downwash/releases):
 
-```
+```bash
 # macOS (Apple Silicon)
-curl -L https://github.com/arvis/downwash/releases/latest/download/downwash_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/askrejans/downwash/releases/latest/download/downwash_darwin_arm64.tar.gz | tar xz
 sudo mv downwash /usr/local/bin/
 
 # Linux (amd64)
-curl -L https://github.com/arvis/downwash/releases/latest/download/downwash_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/askrejans/downwash/releases/latest/download/downwash_linux_amd64.tar.gz | tar xz
 sudo mv downwash /usr/local/bin/
 
 # Windows (PowerShell, amd64)
-Invoke-WebRequest https://github.com/arvis/downwash/releases/latest/download/downwash_windows_amd64.zip -OutFile downwash.zip
+Invoke-WebRequest https://github.com/askrejans/downwash/releases/latest/download/downwash_windows_amd64.zip -OutFile downwash.zip
 Expand-Archive downwash.zip
 ```
 
@@ -57,18 +62,18 @@ Expand-Archive downwash.zip
 
 ```bash
 # Debian / Ubuntu (.deb)
-wget https://github.com/arvis/downwash/releases/latest/download/downwash_amd64.deb
+wget https://github.com/askrejans/downwash/releases/latest/download/downwash_amd64.deb
 sudo dpkg -i downwash_amd64.deb
 
 # Fedora / RHEL / CentOS (.rpm)
-wget https://github.com/arvis/downwash/releases/latest/download/downwash_amd64.rpm
+wget https://github.com/askrejans/downwash/releases/latest/download/downwash_amd64.rpm
 sudo rpm -i downwash_amd64.rpm
 ```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/arvis/downwash.git
+git clone https://github.com/askrejans/downwash.git
 cd downwash
 go build -o downwash ./cmd/downwash
 # or
@@ -81,47 +86,63 @@ Requires **Go 1.21+**.
 
 ## Quick start
 
+downwash auto-detects what you give it — a file, a directory, or nothing — and
+picks the right mode:
+
 ```bash
-# Process a single video — produces GPX, charts, Markdown, PDF
+# Interactive TUI — opens a file picker starting from your home directory
+downwash
+
+# Process a single video (plain CLI, no TUI)
+downwash DJI_0001.MP4
+
+# Process all MP4s in a directory → outputs to <dir>/processed/
+downwash /Volumes/DJI/DCIM/100MEDIA
+
+# Process with transcoding
+downwash --transcode --codec h265 --bitrate 20M DJI_0001.MP4
+
+# Custom output directory
+downwash --output ~/flights/2025-06 DJI_0001.MP4
+
+# Explicit subcommands still work too
 downwash process DJI_0001.MP4
-
-# Process and also transcode to H.264 @ 15 Mbps
-downwash process --transcode DJI_0001.MP4
-
-# Process and transcode to H.265 @ 20 Mbps, slow preset
-downwash process --transcode --codec h265 --bitrate 20M --preset slow DJI_0001.MP4
-
-# Batch-process an entire SD card
-downwash batch /Volumes/DJI/DCIM/100MEDIA
-
-# Batch with a shared output directory
-downwash batch --output ~/flights/2025-06 /Volumes/DJI/DCIM/100MEDIA
-
-# Recursively scan sub-directories
 downwash batch --recursive /Volumes/DJI
 ```
 
 ---
 
-## Commands
+## Usage modes
 
-### `downwash process`
+| Command | Mode | Description |
+|---|---|---|
+| `downwash` | TUI | Interactive file picker (starts at home directory) |
+| `downwash <file.MP4>` | Plain CLI | Process a single video file |
+| `downwash <directory>` | Plain CLI | Batch-process all MP4s, output to `<dir>/processed/` |
+| `downwash process` | TUI | File picker via the `process` subcommand |
+| `downwash process <file>` | TUI | Process with real-time progress view |
+| `downwash batch <dir>` | Plain CLI | Batch with `--recursive` support |
+| `downwash --no-tui` | Plain CLI | Force plain output (for scripts/CI) |
 
-Process a single DJI MP4 file.
+---
 
-```
-Usage: downwash process [flags] <video.MP4>
-```
+## Flags
 
 | Flag | Default | Description |
 |---|---|---|
-| `-o`, `--output` | input file directory | Directory for output artefacts |
+| `-o`, `--output` | input file dir / `<dir>/processed/` | Directory for output artefacts |
 | `--transcode` | false | Re-encode video with ffmpeg |
 | `--codec` | `h264` | Transcode codec: `h264` or `h265` |
 | `--bitrate` | `15M` | Target video bitrate (e.g. `15M`, `8M`) |
 | `--preset` | `medium` | ffmpeg encode preset (`ultrafast` … `veryslow`) |
 | `--skip-telemetry` | false | Skip exiftool extraction (no GPX/charts/reports) |
+| `--skip-gpx` | false | Skip GPX track generation |
+| `--skip-charts` | false | Skip altitude and track map charts |
+| `--skip-markdown` | false | Skip Markdown report generation |
+| `--skip-pdf` | false | Skip PDF briefing generation |
+| `--no-tui` | false | Disable interactive TUI (plain text output) |
 | `-v`, `--verbose` | false | Debug logging (shows ffmpeg/exiftool output) |
+| `-r`, `--recursive` | false | Descend into sub-directories (batch mode) |
 
 **Output files** (names derived from input basename):
 
@@ -133,20 +154,6 @@ Usage: downwash process [flags] <video.MP4>
 | Markdown report | `_report.md` | Human-readable flight summary |
 | PDF briefing | `_briefing.pdf` | 3-page aviation-themed PDF |
 | Transcoded video | `_h264.mp4` / `_h265.mp4` | Only with `--transcode` |
-
-### `downwash batch`
-
-Process all MP4 files in a directory.
-
-```
-Usage: downwash batch [flags] <input-dir>
-```
-
-All flags from `process` apply, plus:
-
-| Flag | Default | Description |
-|---|---|---|
-| `-r`, `--recursive` | false | Descend into sub-directories |
 
 ### `downwash version`
 
@@ -222,13 +229,25 @@ make sample
 
 ## Sample output
 
-Pre-generated samples using synthetic flight data (no real location) are in [`samples/`](samples/):
+Pre-generated samples using synthetic flight data (no real location) are in [`samples/`](samples/).
 
-- [`sample_flight_track.gpx`](samples/sample_flight_track.gpx)
-- [`sample_flight_altitude.png`](samples/sample_flight_altitude.png)
-- [`sample_flight_track.png`](samples/sample_flight_track.png)
-- [`sample_flight_report.md`](samples/sample_flight_report.md)
-- [`sample_flight_briefing.pdf`](samples/sample_flight_briefing.pdf)
+### Altitude profile
+
+![Altitude profile](samples/sample_flight_altitude.png)
+
+### Flight track map
+
+![Flight track](samples/sample_flight_track.png)
+
+### All artefacts
+
+| Artefact | File |
+|:---|:---|
+| Altitude chart | [`sample_flight_altitude.png`](samples/sample_flight_altitude.png) |
+| Flight track map | [`sample_flight_track.png`](samples/sample_flight_track.png) |
+| GPX track | [`sample_flight_track.gpx`](samples/sample_flight_track.gpx) |
+| Markdown report | [`sample_flight_report.md`](samples/sample_flight_report.md) |
+| PDF briefing | [`sample_flight_briefing.pdf`](samples/sample_flight_briefing.pdf) |
 
 ---
 
@@ -240,10 +259,12 @@ downwash/
 ├── internal/
 │   ├── telemetry/       # exiftool extraction, frame parsing, FlightStats
 │   ├── ffmpeg/          # ffmpeg/ffprobe wrappers
+│   ├── geo/             # shared geodesy helpers (haversine, rounding)
 │   ├── gpx/             # GPX 1.1 writer
 │   ├── chart/           # gonum/plot chart renderers
 │   ├── report/          # Markdown and PDF report generators
-│   └── pipeline/        # Orchestrates the full processing workflow
+│   ├── pipeline/        # Orchestrates the full processing workflow
+│   └── tui/             # Bubble Tea interactive terminal interface
 ├── samples/             # Pre-generated sample artefacts + generator
 ├── .goreleaser.yml      # Cross-platform release configuration
 ├── Makefile
@@ -254,4 +275,9 @@ downwash/
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+GPL-3.0 — see [LICENSE](LICENSE).
+
+## AI / ML opt-out
+
+This repository and its contents are **not** licensed for use in AI/ML training datasets.
+See `robots.txt` and `.ai-labeling` for machine-readable opt-out metadata.

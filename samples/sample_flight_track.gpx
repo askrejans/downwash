@@ -1,0 +1,968 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="downwash" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>sample_flight</name>
+    <desc>DJI drone flight track — 191 trackpoints</desc>
+    <time>0001-01-01T00:00:00Z</time>
+  </metadata>
+  <trk>
+    <name>sample_flight</name>
+    <trkseg>
+      <trkpt lat="9.8e-05" lon="0.000196">
+        <ele>47.01</ele>
+        <time>2025-06-15T10:00:01.001001001Z</time>
+        <desc>AGL 12.0m | Roll 0.2° Pitch -3.0° Yaw -162.0°</desc>
+      </trkpt>
+      <trkpt lat="0.000196" lon="0.000392">
+        <ele>59.02</ele>
+        <time>2025-06-15T10:00:02.002002002Z</time>
+        <desc>AGL 24.0m | Roll 0.3° Pitch -3.0° Yaw -144.0°</desc>
+      </trkpt>
+      <trkpt lat="0.000294" lon="0.000586">
+        <ele>71.04</ele>
+        <time>2025-06-15T10:00:03.003003003Z</time>
+        <desc>AGL 36.0m | Roll 0.5° Pitch -3.0° Yaw -125.9°</desc>
+      </trkpt>
+      <trkpt lat="0.000392" lon="0.000777">
+        <ele>83.05</ele>
+        <time>2025-06-15T10:00:04.004004004Z</time>
+        <desc>AGL 48.0m | Roll 0.7° Pitch -3.0° Yaw -107.9°</desc>
+      </trkpt>
+      <trkpt lat="0.000489" lon="0.000965">
+        <ele>95.06</ele>
+        <time>2025-06-15T10:00:05.005005005Z</time>
+        <desc>AGL 60.1m | Roll 0.8° Pitch -3.0° Yaw -89.9°</desc>
+      </trkpt>
+      <trkpt lat="0.000586" lon="0.001149">
+        <ele>107.07</ele>
+        <time>2025-06-15T10:00:06.006006006Z</time>
+        <desc>AGL 72.1m | Roll 1.0° Pitch -3.0° Yaw -71.9°</desc>
+      </trkpt>
+      <trkpt lat="0.000682" lon="0.001328">
+        <ele>119.08</ele>
+        <time>2025-06-15T10:00:07.007007007Z</time>
+        <desc>AGL 84.1m | Roll 1.1° Pitch -3.0° Yaw -53.9°</desc>
+      </trkpt>
+      <trkpt lat="0.000777" lon="0.001501">
+        <ele>131.1</ele>
+        <time>2025-06-15T10:00:08.008008008Z</time>
+        <desc>AGL 96.1m | Roll 1.3° Pitch -2.9° Yaw -35.9°</desc>
+      </trkpt>
+      <trkpt lat="0.000872" lon="0.001668">
+        <ele>143.11</ele>
+        <time>2025-06-15T10:00:09.009009009Z</time>
+        <desc>AGL 108.1m | Roll 1.5° Pitch -2.9° Yaw -17.8°</desc>
+      </trkpt>
+      <trkpt lat="0.000965" lon="0.001828">
+        <ele>154.99</ele>
+        <time>2025-06-15T10:00:10.01001001Z</time>
+        <desc>AGL 120.0m | Roll 1.6° Pitch -2.9° Yaw 0.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001058" lon="0.00198">
+        <ele>153.52</ele>
+        <time>2025-06-15T10:00:11.011011011Z</time>
+        <desc>AGL 118.5m | Roll 1.8° Pitch -2.9° Yaw 18.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001149" lon="0.002123">
+        <ele>152.07</ele>
+        <time>2025-06-15T10:00:12.012012012Z</time>
+        <desc>AGL 117.1m | Roll 1.9° Pitch -2.9° Yaw 36.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001239" lon="0.002257">
+        <ele>150.63</ele>
+        <time>2025-06-15T10:00:13.013013013Z</time>
+        <desc>AGL 115.6m | Roll 2.1° Pitch -2.9° Yaw 54.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001328" lon="0.002382">
+        <ele>149.22</ele>
+        <time>2025-06-15T10:00:14.014014014Z</time>
+        <desc>AGL 114.2m | Roll 2.2° Pitch -2.8° Yaw 72.3°</desc>
+      </trkpt>
+      <trkpt lat="0.001415" lon="0.002496">
+        <ele>147.83</ele>
+        <time>2025-06-15T10:00:15.015015015Z</time>
+        <desc>AGL 112.8m | Roll 2.4° Pitch -2.8° Yaw 90.3°</desc>
+      </trkpt>
+      <trkpt lat="0.001501" lon="0.0026">
+        <ele>146.49</ele>
+        <time>2025-06-15T10:00:16.016016016Z</time>
+        <desc>AGL 111.5m | Roll 2.5° Pitch -2.8° Yaw 108.3°</desc>
+      </trkpt>
+      <trkpt lat="0.001586" lon="0.002692">
+        <ele>145.19</ele>
+        <time>2025-06-15T10:00:17.017017017Z</time>
+        <desc>AGL 110.2m | Roll 2.6° Pitch -2.8° Yaw 126.3°</desc>
+      </trkpt>
+      <trkpt lat="0.001668" lon="0.002773">
+        <ele>143.94</ele>
+        <time>2025-06-15T10:00:18.018018018Z</time>
+        <desc>AGL 108.9m | Roll 2.8° Pitch -2.7° Yaw 144.3°</desc>
+      </trkpt>
+      <trkpt lat="0.001749" lon="0.002842">
+        <ele>142.75</ele>
+        <time>2025-06-15T10:00:19.019019019Z</time>
+        <desc>AGL 107.8m | Roll 2.9° Pitch -2.7° Yaw 162.3°</desc>
+      </trkpt>
+      <trkpt lat="0.001828" lon="0.002899">
+        <ele>141.63</ele>
+        <time>2025-06-15T10:00:20.02002002Z</time>
+        <desc>AGL 106.6m | Roll 3.0° Pitch -2.7° Yaw -179.6°</desc>
+      </trkpt>
+      <trkpt lat="0.001905" lon="0.002943">
+        <ele>140.58</ele>
+        <time>2025-06-15T10:00:21.021021021Z</time>
+        <desc>AGL 105.6m | Roll 3.2° Pitch -2.7° Yaw -161.6°</desc>
+      </trkpt>
+      <trkpt lat="0.00198" lon="0.002975">
+        <ele>139.61</ele>
+        <time>2025-06-15T10:00:22.022022022Z</time>
+        <desc>AGL 104.6m | Roll 3.3° Pitch -2.6° Yaw -143.6°</desc>
+      </trkpt>
+      <trkpt lat="0.002052" lon="0.002994">
+        <ele>138.71</ele>
+        <time>2025-06-15T10:00:23.023023023Z</time>
+        <desc>AGL 103.7m | Roll 3.4° Pitch -2.6° Yaw -125.6°</desc>
+      </trkpt>
+      <trkpt lat="0.002123" lon="0.003">
+        <ele>137.91</ele>
+        <time>2025-06-15T10:00:24.024024024Z</time>
+        <desc>AGL 102.9m | Roll 3.5° Pitch -2.6° Yaw -107.6°</desc>
+      </trkpt>
+      <trkpt lat="0.002191" lon="0.002993">
+        <ele>137.2</ele>
+        <time>2025-06-15T10:00:25.025025025Z</time>
+        <desc>AGL 102.2m | Roll 3.7° Pitch -2.5° Yaw -89.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002257" lon="0.002974">
+        <ele>136.58</ele>
+        <time>2025-06-15T10:00:26.026026026Z</time>
+        <desc>AGL 101.6m | Roll 3.8° Pitch -2.5° Yaw -71.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002321" lon="0.002941">
+        <ele>136.06</ele>
+        <time>2025-06-15T10:00:27.027027027Z</time>
+        <desc>AGL 101.1m | Roll 3.9° Pitch -2.4° Yaw -53.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002382" lon="0.002896">
+        <ele>135.64</ele>
+        <time>2025-06-15T10:00:28.028028028Z</time>
+        <desc>AGL 100.6m | Roll 4.0° Pitch -2.4° Yaw -35.5°</desc>
+      </trkpt>
+      <trkpt lat="0.00244" lon="0.002839">
+        <ele>135.33</ele>
+        <time>2025-06-15T10:00:29.029029029Z</time>
+        <desc>AGL 100.3m | Roll 4.1° Pitch -2.4° Yaw -17.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002496" lon="0.002769">
+        <ele>135.12</ele>
+        <time>2025-06-15T10:00:30.03003003Z</time>
+        <desc>AGL 100.1m | Roll 4.2° Pitch -2.3° Yaw 0.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002549" lon="0.002688">
+        <ele>135.01</ele>
+        <time>2025-06-15T10:00:31.031031031Z</time>
+        <desc>AGL 100.0m | Roll 4.2° Pitch -2.3° Yaw 18.6°</desc>
+      </trkpt>
+      <trkpt lat="0.0026" lon="0.002595">
+        <ele>135.02</ele>
+        <time>2025-06-15T10:00:32.032032032Z</time>
+        <desc>AGL 100.0m | Roll 4.3° Pitch -2.2° Yaw 36.6°</desc>
+      </trkpt>
+      <trkpt lat="0.002647" lon="0.002491">
+        <ele>135.13</ele>
+        <time>2025-06-15T10:00:33.033033033Z</time>
+        <desc>AGL 100.1m | Roll 4.4° Pitch -2.2° Yaw 54.6°</desc>
+      </trkpt>
+      <trkpt lat="0.002691" lon="0.00238">
+        <ele>135.33</ele>
+        <time>2025-06-15T10:00:34.000667334Z</time>
+        <desc>AGL 100.3m | Roll 4.5° Pitch -2.1° Yaw 72.0°</desc>
+      </trkpt>
+      <trkpt lat="0.002733" lon="0.002255">
+        <ele>135.65</ele>
+        <time>2025-06-15T10:00:35.001668335Z</time>
+        <desc>AGL 100.7m | Roll 4.6° Pitch -2.1° Yaw 90.0°</desc>
+      </trkpt>
+      <trkpt lat="0.002772" lon="0.002121">
+        <ele>136.07</ele>
+        <time>2025-06-15T10:00:36.002669336Z</time>
+        <desc>AGL 101.1m | Roll 4.6° Pitch -2.0° Yaw 108.0°</desc>
+      </trkpt>
+      <trkpt lat="0.002808" lon="0.001977">
+        <ele>136.6</ele>
+        <time>2025-06-15T10:00:37.003670337Z</time>
+        <desc>AGL 101.6m | Roll 4.7° Pitch -2.0° Yaw 126.1°</desc>
+      </trkpt>
+      <trkpt lat="0.002841" lon="0.001826">
+        <ele>137.22</ele>
+        <time>2025-06-15T10:00:38.004671338Z</time>
+        <desc>AGL 102.2m | Roll 4.7° Pitch -1.9° Yaw 144.1°</desc>
+      </trkpt>
+      <trkpt lat="0.002871" lon="0.001666">
+        <ele>137.93</ele>
+        <time>2025-06-15T10:00:39.005672339Z</time>
+        <desc>AGL 102.9m | Roll 4.8° Pitch -1.9° Yaw 162.1°</desc>
+      </trkpt>
+      <trkpt lat="0.002898" lon="0.001499">
+        <ele>138.74</ele>
+        <time>2025-06-15T10:00:40.00667334Z</time>
+        <desc>AGL 103.7m | Roll 4.8° Pitch -1.8° Yaw -179.9°</desc>
+      </trkpt>
+      <trkpt lat="0.002922" lon="0.001326">
+        <ele>139.63</ele>
+        <time>2025-06-15T10:00:41.007674341Z</time>
+        <desc>AGL 104.6m | Roll 4.9° Pitch -1.8° Yaw -161.9°</desc>
+      </trkpt>
+      <trkpt lat="0.002943" lon="0.001146">
+        <ele>140.61</ele>
+        <time>2025-06-15T10:00:42.008675342Z</time>
+        <desc>AGL 105.6m | Roll 4.9° Pitch -1.7° Yaw -143.8°</desc>
+      </trkpt>
+      <trkpt lat="0.00296" lon="0.000963">
+        <ele>141.66</ele>
+        <time>2025-06-15T10:00:43.009676343Z</time>
+        <desc>AGL 106.7m | Roll 4.9° Pitch -1.7° Yaw -125.8°</desc>
+      </trkpt>
+      <trkpt lat="0.002974" lon="0.000774">
+        <ele>142.79</ele>
+        <time>2025-06-15T10:00:44.010677344Z</time>
+        <desc>AGL 107.8m | Roll 5.0° Pitch -1.6° Yaw -107.8°</desc>
+      </trkpt>
+      <trkpt lat="0.002986" lon="0.000583">
+        <ele>143.98</ele>
+        <time>2025-06-15T10:00:45.011678345Z</time>
+        <desc>AGL 109.0m | Roll 5.0° Pitch -1.5° Yaw -89.8°</desc>
+      </trkpt>
+      <trkpt lat="0.002994" lon="0.000389">
+        <ele>145.23</ele>
+        <time>2025-06-15T10:00:46.012679346Z</time>
+        <desc>AGL 110.2m | Roll 5.0° Pitch -1.5° Yaw -71.8°</desc>
+      </trkpt>
+      <trkpt lat="0.002998" lon="0.000194">
+        <ele>146.53</ele>
+        <time>2025-06-15T10:00:47.013680347Z</time>
+        <desc>AGL 111.5m | Roll 5.0° Pitch -1.4° Yaw -53.8°</desc>
+      </trkpt>
+      <trkpt lat="0.003" lon="-3e-06">
+        <ele>147.88</ele>
+        <time>2025-06-15T10:00:48.014681348Z</time>
+        <desc>AGL 112.9m | Roll 5.0° Pitch -1.4° Yaw -35.7°</desc>
+      </trkpt>
+      <trkpt lat="0.002998" lon="-0.000199">
+        <ele>149.26</ele>
+        <time>2025-06-15T10:00:49.015682349Z</time>
+        <desc>AGL 114.3m | Roll 5.0° Pitch -1.3° Yaw -17.7°</desc>
+      </trkpt>
+      <trkpt lat="0.002993" lon="-0.000395">
+        <ele>150.68</ele>
+        <time>2025-06-15T10:00:50.01668335Z</time>
+        <desc>AGL 115.7m | Roll 5.0° Pitch -1.2° Yaw 0.3°</desc>
+      </trkpt>
+      <trkpt lat="0.002985" lon="-0.000589">
+        <ele>152.11</ele>
+        <time>2025-06-15T10:00:51.017684351Z</time>
+        <desc>AGL 117.1m | Roll 5.0° Pitch -1.2° Yaw 18.3°</desc>
+      </trkpt>
+      <trkpt lat="0.002974" lon="-0.00078">
+        <ele>153.57</ele>
+        <time>2025-06-15T10:00:52.018685352Z</time>
+        <desc>AGL 118.6m | Roll 5.0° Pitch -1.1° Yaw 36.3°</desc>
+      </trkpt>
+      <trkpt lat="0.00296" lon="-0.000968">
+        <ele>155.03</ele>
+        <time>2025-06-15T10:00:53.019686353Z</time>
+        <desc>AGL 120.0m | Roll 4.9° Pitch -1.0° Yaw 54.4°</desc>
+      </trkpt>
+      <trkpt lat="0.002942" lon="-0.001152">
+        <ele>156.49</ele>
+        <time>2025-06-15T10:00:54.020687354Z</time>
+        <desc>AGL 121.5m | Roll 4.9° Pitch -1.0° Yaw 72.4°</desc>
+      </trkpt>
+      <trkpt lat="0.002921" lon="-0.001331">
+        <ele>157.94</ele>
+        <time>2025-06-15T10:00:55.021688355Z</time>
+        <desc>AGL 122.9m | Roll 4.9° Pitch -0.9° Yaw 90.4°</desc>
+      </trkpt>
+      <trkpt lat="0.002897" lon="-0.001504">
+        <ele>159.38</ele>
+        <time>2025-06-15T10:00:56.022689356Z</time>
+        <desc>AGL 124.4m | Roll 4.8° Pitch -0.9° Yaw 108.4°</desc>
+      </trkpt>
+      <trkpt lat="0.00287" lon="-0.001671">
+        <ele>160.8</ele>
+        <time>2025-06-15T10:00:57.023690357Z</time>
+        <desc>AGL 125.8m | Roll 4.8° Pitch -0.8° Yaw 126.4°</desc>
+      </trkpt>
+      <trkpt lat="0.00284" lon="-0.00183">
+        <ele>162.18</ele>
+        <time>2025-06-15T10:00:58.024691358Z</time>
+        <desc>AGL 127.2m | Roll 4.7° Pitch -0.7° Yaw 144.4°</desc>
+      </trkpt>
+      <trkpt lat="0.002807" lon="-0.001982">
+        <ele>163.52</ele>
+        <time>2025-06-15T10:00:59.025692359Z</time>
+        <desc>AGL 128.5m | Roll 4.7° Pitch -0.7° Yaw 162.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002771" lon="-0.002125">
+        <ele>164.82</ele>
+        <time>2025-06-15T10:01:00.02669336Z</time>
+        <desc>AGL 129.8m | Roll 4.6° Pitch -0.6° Yaw -179.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002731" lon="-0.002259">
+        <ele>166.07</ele>
+        <time>2025-06-15T10:01:01.027694361Z</time>
+        <desc>AGL 131.1m | Roll 4.6° Pitch -0.5° Yaw -161.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002689" lon="-0.002383">
+        <ele>167.26</ele>
+        <time>2025-06-15T10:01:02.028695362Z</time>
+        <desc>AGL 132.3m | Roll 4.5° Pitch -0.4° Yaw -143.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002644" lon="-0.002498">
+        <ele>168.38</ele>
+        <time>2025-06-15T10:01:03.029696363Z</time>
+        <desc>AGL 133.4m | Roll 4.4° Pitch -0.4° Yaw -125.5°</desc>
+      </trkpt>
+      <trkpt lat="0.002597" lon="-0.002601">
+        <ele>169.43</ele>
+        <time>2025-06-15T10:01:04.030697364Z</time>
+        <desc>AGL 134.4m | Roll 4.3° Pitch -0.3° Yaw -107.4°</desc>
+      </trkpt>
+      <trkpt lat="0.002546" lon="-0.002693">
+        <ele>170.4</ele>
+        <time>2025-06-15T10:01:05.031698365Z</time>
+        <desc>AGL 135.4m | Roll 4.2° Pitch -0.2° Yaw -89.4°</desc>
+      </trkpt>
+      <trkpt lat="0.002493" lon="-0.002774">
+        <ele>171.29</ele>
+        <time>2025-06-15T10:01:06.032699366Z</time>
+        <desc>AGL 136.3m | Roll 4.2° Pitch -0.2° Yaw -71.4°</desc>
+      </trkpt>
+      <trkpt lat="0.002439" lon="-0.002841">
+        <ele>172.07</ele>
+        <time>2025-06-15T10:01:07.000333667Z</time>
+        <desc>AGL 137.1m | Roll 4.1° Pitch -0.1° Yaw -54.0°</desc>
+      </trkpt>
+      <trkpt lat="0.00238" lon="-0.002898">
+        <ele>172.79</ele>
+        <time>2025-06-15T10:01:08.001334668Z</time>
+        <desc>AGL 137.8m | Roll 4.0° Pitch -0.0° Yaw -36.0°</desc>
+      </trkpt>
+      <trkpt lat="0.002319" lon="-0.002942">
+        <ele>173.41</ele>
+        <time>2025-06-15T10:01:09.002335669Z</time>
+        <desc>AGL 138.4m | Roll 3.9° Pitch 0.0° Yaw -18.0°</desc>
+      </trkpt>
+      <trkpt lat="0.002255" lon="-0.002974">
+        <ele>173.93</ele>
+        <time>2025-06-15T10:01:10.00333667Z</time>
+        <desc>AGL 138.9m | Roll 3.8° Pitch 0.1° Yaw 0.1°</desc>
+      </trkpt>
+      <trkpt lat="0.002189" lon="-0.002994">
+        <ele>174.35</ele>
+        <time>2025-06-15T10:01:11.004337671Z</time>
+        <desc>AGL 139.4m | Roll 3.6° Pitch 0.2° Yaw 18.1°</desc>
+      </trkpt>
+      <trkpt lat="0.002121" lon="-0.003">
+        <ele>174.67</ele>
+        <time>2025-06-15T10:01:12.005338672Z</time>
+        <desc>AGL 139.7m | Roll 3.5° Pitch 0.2° Yaw 36.1°</desc>
+      </trkpt>
+      <trkpt lat="0.00205" lon="-0.002993">
+        <ele>174.88</ele>
+        <time>2025-06-15T10:01:13.006339673Z</time>
+        <desc>AGL 139.9m | Roll 3.4° Pitch 0.3° Yaw 54.1°</desc>
+      </trkpt>
+      <trkpt lat="0.001977" lon="-0.002974">
+        <ele>174.99</ele>
+        <time>2025-06-15T10:01:14.007340674Z</time>
+        <desc>AGL 140.0m | Roll 3.3° Pitch 0.4° Yaw 72.1°</desc>
+      </trkpt>
+      <trkpt lat="0.001903" lon="-0.002942">
+        <ele>174.99</ele>
+        <time>2025-06-15T10:01:15.008341675Z</time>
+        <desc>AGL 140.0m | Roll 3.2° Pitch 0.4° Yaw 90.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001826" lon="-0.002897">
+        <ele>174.88</ele>
+        <time>2025-06-15T10:01:16.009342676Z</time>
+        <desc>AGL 139.9m | Roll 3.0° Pitch 0.5° Yaw 108.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001747" lon="-0.00284">
+        <ele>174.66</ele>
+        <time>2025-06-15T10:01:17.010343677Z</time>
+        <desc>AGL 139.7m | Roll 2.9° Pitch 0.6° Yaw 126.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001666" lon="-0.002771">
+        <ele>174.35</ele>
+        <time>2025-06-15T10:01:18.011344678Z</time>
+        <desc>AGL 139.3m | Roll 2.8° Pitch 0.6° Yaw 144.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001583" lon="-0.00269">
+        <ele>173.92</ele>
+        <time>2025-06-15T10:01:19.012345679Z</time>
+        <desc>AGL 138.9m | Roll 2.6° Pitch 0.7° Yaw 162.2°</desc>
+      </trkpt>
+      <trkpt lat="0.001499" lon="-0.002597">
+        <ele>173.4</ele>
+        <time>2025-06-15T10:01:20.01334668Z</time>
+        <desc>AGL 138.4m | Roll 2.5° Pitch 0.8° Yaw -179.8°</desc>
+      </trkpt>
+      <trkpt lat="0.001413" lon="-0.002493">
+        <ele>172.78</ele>
+        <time>2025-06-15T10:01:21.014347681Z</time>
+        <desc>AGL 137.8m | Roll 2.4° Pitch 0.8° Yaw -161.7°</desc>
+      </trkpt>
+      <trkpt lat="0.001326" lon="-0.002378">
+        <ele>172.06</ele>
+        <time>2025-06-15T10:01:22.015348682Z</time>
+        <desc>AGL 137.1m | Roll 2.2° Pitch 0.9° Yaw -143.7°</desc>
+      </trkpt>
+      <trkpt lat="0.001237" lon="-0.002253">
+        <ele>171.25</ele>
+        <time>2025-06-15T10:01:23.016349683Z</time>
+        <desc>AGL 136.3m | Roll 2.1° Pitch 1.0° Yaw -125.7°</desc>
+      </trkpt>
+      <trkpt lat="0.001146" lon="-0.002119">
+        <ele>170.36</ele>
+        <time>2025-06-15T10:01:24.017350684Z</time>
+        <desc>AGL 135.4m | Roll 1.9° Pitch 1.0° Yaw -107.7°</desc>
+      </trkpt>
+      <trkpt lat="0.001055" lon="-0.001975">
+        <ele>169.38</ele>
+        <time>2025-06-15T10:01:25.018351685Z</time>
+        <desc>AGL 134.4m | Roll 1.8° Pitch 1.1° Yaw -89.7°</desc>
+      </trkpt>
+      <trkpt lat="0.000963" lon="-0.001823">
+        <ele>168.33</ele>
+        <time>2025-06-15T10:01:26.019352686Z</time>
+        <desc>AGL 133.3m | Roll 1.6° Pitch 1.2° Yaw -71.7°</desc>
+      </trkpt>
+      <trkpt lat="0.000869" lon="-0.001663">
+        <ele>167.2</ele>
+        <time>2025-06-15T10:01:27.020353687Z</time>
+        <desc>AGL 132.2m | Roll 1.4° Pitch 1.2° Yaw -53.6°</desc>
+      </trkpt>
+      <trkpt lat="0.000774" lon="-0.001496">
+        <ele>166.01</ele>
+        <time>2025-06-15T10:01:28.021354688Z</time>
+        <desc>AGL 131.0m | Roll 1.3° Pitch 1.3° Yaw -35.6°</desc>
+      </trkpt>
+      <trkpt lat="0.000679" lon="-0.001323">
+        <ele>164.76</ele>
+        <time>2025-06-15T10:01:29.022355689Z</time>
+        <desc>AGL 129.8m | Roll 1.1° Pitch 1.4° Yaw -17.6°</desc>
+      </trkpt>
+      <trkpt lat="0.000583" lon="-0.001144">
+        <ele>163.46</ele>
+        <time>2025-06-15T10:01:30.02335669Z</time>
+        <desc>AGL 128.5m | Roll 1.0° Pitch 1.4° Yaw 0.4°</desc>
+      </trkpt>
+      <trkpt lat="0.000486" lon="-0.00096">
+        <ele>162.11</ele>
+        <time>2025-06-15T10:01:31.024357691Z</time>
+        <desc>AGL 127.1m | Roll 0.8° Pitch 1.5° Yaw 18.4°</desc>
+      </trkpt>
+      <trkpt lat="0.000389" lon="-0.000772">
+        <ele>160.73</ele>
+        <time>2025-06-15T10:01:32.025358692Z</time>
+        <desc>AGL 125.7m | Roll 0.6° Pitch 1.5° Yaw 36.5°</desc>
+      </trkpt>
+      <trkpt lat="0.000291" lon="-0.00058">
+        <ele>159.31</ele>
+        <time>2025-06-15T10:01:33.026359693Z</time>
+        <desc>AGL 124.3m | Roll 0.5° Pitch 1.6° Yaw 54.5°</desc>
+      </trkpt>
+      <trkpt lat="0.000194" lon="-0.000386">
+        <ele>157.87</ele>
+        <time>2025-06-15T10:01:34.027360694Z</time>
+        <desc>AGL 122.9m | Roll 0.3° Pitch 1.7° Yaw 72.5°</desc>
+      </trkpt>
+      <trkpt lat="9.5e-05" lon="-0.000191">
+        <ele>156.42</ele>
+        <time>2025-06-15T10:01:35.028361695Z</time>
+        <desc>AGL 121.4m | Roll 0.2° Pitch 1.7° Yaw 90.5°</desc>
+      </trkpt>
+      <trkpt lat="-3e-06" lon="6e-06">
+        <ele>154.96</ele>
+        <time>2025-06-15T10:01:36.029362696Z</time>
+        <desc>AGL 120.0m | Roll -0.0° Pitch 1.8° Yaw 108.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.000101" lon="0.000202">
+        <ele>153.5</ele>
+        <time>2025-06-15T10:01:37.030363697Z</time>
+        <desc>AGL 118.5m | Roll -0.2° Pitch 1.8° Yaw 126.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.000199" lon="0.000398">
+        <ele>152.04</ele>
+        <time>2025-06-15T10:01:38.031364698Z</time>
+        <desc>AGL 117.0m | Roll -0.3° Pitch 1.9° Yaw 144.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.000297" lon="0.000592">
+        <ele>150.61</ele>
+        <time>2025-06-15T10:01:39.032365699Z</time>
+        <desc>AGL 115.6m | Roll -0.5° Pitch 1.9° Yaw 162.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.000392" lon="0.000776">
+        <ele>149.24</ele>
+        <time>2025-06-15T10:01:40Z</time>
+        <desc>AGL 114.2m | Roll -0.7° Pitch 2.0° Yaw -180.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.000489" lon="0.000965">
+        <ele>147.85</ele>
+        <time>2025-06-15T10:01:41.001001001Z</time>
+        <desc>AGL 112.9m | Roll -0.8° Pitch 2.0° Yaw -162.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.000585" lon="0.001148">
+        <ele>146.51</ele>
+        <time>2025-06-15T10:01:42.002002002Z</time>
+        <desc>AGL 111.5m | Roll -1.0° Pitch 2.1° Yaw -144.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.000682" lon="0.001327">
+        <ele>145.21</ele>
+        <time>2025-06-15T10:01:43.003003003Z</time>
+        <desc>AGL 110.2m | Roll -1.1° Pitch 2.1° Yaw -125.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.000777" lon="0.001501">
+        <ele>143.96</ele>
+        <time>2025-06-15T10:01:44.004004004Z</time>
+        <desc>AGL 109.0m | Roll -1.3° Pitch 2.2° Yaw -107.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.000871" lon="0.001668">
+        <ele>142.77</ele>
+        <time>2025-06-15T10:01:45.005005005Z</time>
+        <desc>AGL 107.8m | Roll -1.5° Pitch 2.2° Yaw -89.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.000965" lon="0.001827">
+        <ele>141.65</ele>
+        <time>2025-06-15T10:01:46.006006006Z</time>
+        <desc>AGL 106.6m | Roll -1.6° Pitch 2.3° Yaw -71.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.001057" lon="0.001979">
+        <ele>140.59</ele>
+        <time>2025-06-15T10:01:47.007007007Z</time>
+        <desc>AGL 105.6m | Roll -1.8° Pitch 2.3° Yaw -53.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.001149" lon="0.002122">
+        <ele>139.62</ele>
+        <time>2025-06-15T10:01:48.008008008Z</time>
+        <desc>AGL 104.6m | Roll -1.9° Pitch 2.4° Yaw -35.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.001239" lon="0.002257">
+        <ele>138.73</ele>
+        <time>2025-06-15T10:01:49.009009009Z</time>
+        <desc>AGL 103.7m | Roll -2.1° Pitch 2.4° Yaw -17.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.001328" lon="0.002381">
+        <ele>137.92</ele>
+        <time>2025-06-15T10:01:50.01001001Z</time>
+        <desc>AGL 102.9m | Roll -2.2° Pitch 2.4° Yaw 0.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001415" lon="0.002496">
+        <ele>137.21</ele>
+        <time>2025-06-15T10:01:51.011011011Z</time>
+        <desc>AGL 102.2m | Roll -2.4° Pitch 2.5° Yaw 18.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001501" lon="0.002599">
+        <ele>136.59</ele>
+        <time>2025-06-15T10:01:52.012012012Z</time>
+        <desc>AGL 101.6m | Roll -2.5° Pitch 2.5° Yaw 36.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001585" lon="0.002692">
+        <ele>136.07</ele>
+        <time>2025-06-15T10:01:53.013013013Z</time>
+        <desc>AGL 101.1m | Roll -2.6° Pitch 2.6° Yaw 54.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001668" lon="0.002773">
+        <ele>135.65</ele>
+        <time>2025-06-15T10:01:54.014014014Z</time>
+        <desc>AGL 100.6m | Roll -2.8° Pitch 2.6° Yaw 72.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.001749" lon="0.002842">
+        <ele>135.33</ele>
+        <time>2025-06-15T10:01:55.015015015Z</time>
+        <desc>AGL 100.3m | Roll -2.9° Pitch 2.6° Yaw 90.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.001828" lon="0.002899">
+        <ele>135.12</ele>
+        <time>2025-06-15T10:01:56.016016016Z</time>
+        <desc>AGL 100.1m | Roll -3.0° Pitch 2.7° Yaw 108.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.001904" lon="0.002943">
+        <ele>135.01</ele>
+        <time>2025-06-15T10:01:57.017017017Z</time>
+        <desc>AGL 100.0m | Roll -3.2° Pitch 2.7° Yaw 126.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.001979" lon="0.002975">
+        <ele>135.01</ele>
+        <time>2025-06-15T10:01:58.018018018Z</time>
+        <desc>AGL 100.0m | Roll -3.3° Pitch 2.7° Yaw 144.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.002052" lon="0.002994">
+        <ele>135.12</ele>
+        <time>2025-06-15T10:01:59.019019019Z</time>
+        <desc>AGL 100.1m | Roll -3.4° Pitch 2.7° Yaw 162.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.002123" lon="0.003">
+        <ele>135.34</ele>
+        <time>2025-06-15T10:02:00.02002002Z</time>
+        <desc>AGL 100.3m | Roll -3.5° Pitch 2.8° Yaw -179.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.002191" lon="0.002993">
+        <ele>135.66</ele>
+        <time>2025-06-15T10:02:01.021021021Z</time>
+        <desc>AGL 100.7m | Roll -3.7° Pitch 2.8° Yaw -161.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.002257" lon="0.002974">
+        <ele>136.08</ele>
+        <time>2025-06-15T10:02:02.022022022Z</time>
+        <desc>AGL 101.1m | Roll -3.8° Pitch 2.8° Yaw -143.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.00232" lon="0.002941">
+        <ele>136.61</ele>
+        <time>2025-06-15T10:02:03.023023023Z</time>
+        <desc>AGL 101.6m | Roll -3.9° Pitch 2.8° Yaw -125.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.002381" lon="0.002897">
+        <ele>137.23</ele>
+        <time>2025-06-15T10:02:04.024024024Z</time>
+        <desc>AGL 102.2m | Roll -4.0° Pitch 2.9° Yaw -107.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.00244" lon="0.002839">
+        <ele>137.95</ele>
+        <time>2025-06-15T10:02:05.025025025Z</time>
+        <desc>AGL 102.9m | Roll -4.1° Pitch 2.9° Yaw -89.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002496" lon="0.00277">
+        <ele>138.76</ele>
+        <time>2025-06-15T10:02:06.026026026Z</time>
+        <desc>AGL 103.8m | Roll -4.2° Pitch 2.9° Yaw -71.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002549" lon="0.002688">
+        <ele>139.65</ele>
+        <time>2025-06-15T10:02:07.027027027Z</time>
+        <desc>AGL 104.7m | Roll -4.2° Pitch 2.9° Yaw -53.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002599" lon="0.002595">
+        <ele>140.63</ele>
+        <time>2025-06-15T10:02:08.028028028Z</time>
+        <desc>AGL 105.6m | Roll -4.3° Pitch 2.9° Yaw -35.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002647" lon="0.002491">
+        <ele>141.69</ele>
+        <time>2025-06-15T10:02:09.029029029Z</time>
+        <desc>AGL 106.7m | Roll -4.4° Pitch 2.9° Yaw -17.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002692" lon="0.002376">
+        <ele>142.81</ele>
+        <time>2025-06-15T10:02:10.03003003Z</time>
+        <desc>AGL 107.8m | Roll -4.5° Pitch 3.0° Yaw 0.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002734" lon="0.002251">
+        <ele>144</ele>
+        <time>2025-06-15T10:02:11.031031031Z</time>
+        <desc>AGL 109.0m | Roll -4.6° Pitch 3.0° Yaw 18.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.002773" lon="0.002117">
+        <ele>145.25</ele>
+        <time>2025-06-15T10:02:12.032032032Z</time>
+        <desc>AGL 110.3m | Roll -4.6° Pitch 3.0° Yaw 36.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.002809" lon="0.001973">
+        <ele>146.55</ele>
+        <time>2025-06-15T10:02:13.033033033Z</time>
+        <desc>AGL 111.6m | Roll -4.7° Pitch 3.0° Yaw 54.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.002841" lon="0.001826">
+        <ele>147.86</ele>
+        <time>2025-06-15T10:02:14.000667334Z</time>
+        <desc>AGL 112.9m | Roll -4.7° Pitch 3.0° Yaw 72.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.002871" lon="0.001666">
+        <ele>149.24</ele>
+        <time>2025-06-15T10:02:15.001668335Z</time>
+        <desc>AGL 114.2m | Roll -4.8° Pitch 3.0° Yaw 90.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.002898" lon="0.0015">
+        <ele>150.66</ele>
+        <time>2025-06-15T10:02:16.002669336Z</time>
+        <desc>AGL 115.7m | Roll -4.8° Pitch 3.0° Yaw 108.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.002922" lon="0.001326">
+        <ele>152.09</ele>
+        <time>2025-06-15T10:02:17.003670337Z</time>
+        <desc>AGL 117.1m | Roll -4.9° Pitch 3.0° Yaw 126.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.002942" lon="0.001147">
+        <ele>153.55</ele>
+        <time>2025-06-15T10:02:18.004671338Z</time>
+        <desc>AGL 118.5m | Roll -4.9° Pitch 3.0° Yaw 144.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.00296" lon="0.000963">
+        <ele>155.01</ele>
+        <time>2025-06-15T10:02:19.005672339Z</time>
+        <desc>AGL 120.0m | Roll -4.9° Pitch 3.0° Yaw 162.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.002974" lon="0.000775">
+        <ele>156.47</ele>
+        <time>2025-06-15T10:02:20.00667334Z</time>
+        <desc>AGL 121.5m | Roll -5.0° Pitch 3.0° Yaw -179.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.002986" lon="0.000584">
+        <ele>157.92</ele>
+        <time>2025-06-15T10:02:21.007674341Z</time>
+        <desc>AGL 122.9m | Roll -5.0° Pitch 3.0° Yaw -161.9°</desc>
+      </trkpt>
+      <trkpt lat="-0.002994" lon="0.00039">
+        <ele>159.36</ele>
+        <time>2025-06-15T10:02:22.008675342Z</time>
+        <desc>AGL 124.4m | Roll -5.0° Pitch 3.0° Yaw -143.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.002998" lon="0.000194">
+        <ele>160.78</ele>
+        <time>2025-06-15T10:02:23.009676343Z</time>
+        <desc>AGL 125.8m | Roll -5.0° Pitch 3.0° Yaw -125.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.003" lon="-2e-06">
+        <ele>162.16</ele>
+        <time>2025-06-15T10:02:24.010677344Z</time>
+        <desc>AGL 127.2m | Roll -5.0° Pitch 3.0° Yaw -107.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.002998" lon="-0.000198">
+        <ele>163.5</ele>
+        <time>2025-06-15T10:02:25.011678345Z</time>
+        <desc>AGL 128.5m | Roll -5.0° Pitch 3.0° Yaw -89.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.002993" lon="-0.000394">
+        <ele>164.8</ele>
+        <time>2025-06-15T10:02:26.012679346Z</time>
+        <desc>AGL 129.8m | Roll -5.0° Pitch 2.9° Yaw -71.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.002985" lon="-0.000588">
+        <ele>166.05</ele>
+        <time>2025-06-15T10:02:27.013680347Z</time>
+        <desc>AGL 131.1m | Roll -5.0° Pitch 2.9° Yaw -53.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.002974" lon="-0.000779">
+        <ele>167.24</ele>
+        <time>2025-06-15T10:02:28.014681348Z</time>
+        <desc>AGL 132.2m | Roll -5.0° Pitch 2.9° Yaw -35.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.00296" lon="-0.000967">
+        <ele>168.36</ele>
+        <time>2025-06-15T10:02:29.015682349Z</time>
+        <desc>AGL 133.4m | Roll -4.9° Pitch 2.9° Yaw -17.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.002942" lon="-0.001151">
+        <ele>169.41</ele>
+        <time>2025-06-15T10:02:30.01668335Z</time>
+        <desc>AGL 134.4m | Roll -4.9° Pitch 2.9° Yaw 0.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.002921" lon="-0.00133">
+        <ele>170.39</ele>
+        <time>2025-06-15T10:02:31.017684351Z</time>
+        <desc>AGL 135.4m | Roll -4.9° Pitch 2.8° Yaw 18.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.002897" lon="-0.001503">
+        <ele>171.28</ele>
+        <time>2025-06-15T10:02:32.018685352Z</time>
+        <desc>AGL 136.3m | Roll -4.8° Pitch 2.8° Yaw 36.3°</desc>
+      </trkpt>
+      <trkpt lat="-0.00287" lon="-0.00167">
+        <ele>172.09</ele>
+        <time>2025-06-15T10:02:33.019686353Z</time>
+        <desc>AGL 137.1m | Roll -4.8° Pitch 2.8° Yaw 54.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.00284" lon="-0.00183">
+        <ele>172.8</ele>
+        <time>2025-06-15T10:02:34.020687354Z</time>
+        <desc>AGL 137.8m | Roll -4.7° Pitch 2.8° Yaw 72.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.002807" lon="-0.001981">
+        <ele>173.42</ele>
+        <time>2025-06-15T10:02:35.021688355Z</time>
+        <desc>AGL 138.4m | Roll -4.7° Pitch 2.8° Yaw 90.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.002771" lon="-0.002124">
+        <ele>173.94</ele>
+        <time>2025-06-15T10:02:36.022689356Z</time>
+        <desc>AGL 138.9m | Roll -4.6° Pitch 2.7° Yaw 108.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.002732" lon="-0.002259">
+        <ele>174.36</ele>
+        <time>2025-06-15T10:02:37.023690357Z</time>
+        <desc>AGL 139.4m | Roll -4.6° Pitch 2.7° Yaw 126.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.00269" lon="-0.002383">
+        <ele>174.67</ele>
+        <time>2025-06-15T10:02:38.024691358Z</time>
+        <desc>AGL 139.7m | Roll -4.5° Pitch 2.7° Yaw 144.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.002645" lon="-0.002497">
+        <ele>174.88</ele>
+        <time>2025-06-15T10:02:39.025692359Z</time>
+        <desc>AGL 139.9m | Roll -4.4° Pitch 2.6° Yaw 162.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002597" lon="-0.002601">
+        <ele>174.99</ele>
+        <time>2025-06-15T10:02:40.02669336Z</time>
+        <desc>AGL 140.0m | Roll -4.3° Pitch 2.6° Yaw -179.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002546" lon="-0.002693">
+        <ele>174.99</ele>
+        <time>2025-06-15T10:02:41.027694361Z</time>
+        <desc>AGL 140.0m | Roll -4.2° Pitch 2.6° Yaw -161.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002493" lon="-0.002774">
+        <ele>174.88</ele>
+        <time>2025-06-15T10:02:42.028695362Z</time>
+        <desc>AGL 139.9m | Roll -4.2° Pitch 2.5° Yaw -143.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002437" lon="-0.002843">
+        <ele>174.66</ele>
+        <time>2025-06-15T10:02:43.029696363Z</time>
+        <desc>AGL 139.7m | Roll -4.1° Pitch 2.5° Yaw -125.5°</desc>
+      </trkpt>
+      <trkpt lat="-0.002378" lon="-0.002899">
+        <ele>174.34</ele>
+        <time>2025-06-15T10:02:44.030697364Z</time>
+        <desc>AGL 139.3m | Roll -4.0° Pitch 2.4° Yaw -107.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.002317" lon="-0.002944">
+        <ele>173.91</ele>
+        <time>2025-06-15T10:02:45.031698365Z</time>
+        <desc>AGL 138.9m | Roll -3.9° Pitch 2.4° Yaw -89.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.002253" lon="-0.002975">
+        <ele>173.39</ele>
+        <time>2025-06-15T10:02:46.032699366Z</time>
+        <desc>AGL 138.4m | Roll -3.8° Pitch 2.4° Yaw -71.4°</desc>
+      </trkpt>
+      <trkpt lat="-0.00219" lon="-0.002994">
+        <ele>172.79</ele>
+        <time>2025-06-15T10:02:47.000333667Z</time>
+        <desc>AGL 137.8m | Roll -3.6° Pitch 2.3° Yaw -54.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.002121" lon="-0.003">
+        <ele>172.07</ele>
+        <time>2025-06-15T10:02:48.001334668Z</time>
+        <desc>AGL 137.1m | Roll -3.5° Pitch 2.3° Yaw -36.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.002051" lon="-0.002994">
+        <ele>171.26</ele>
+        <time>2025-06-15T10:02:49.002335669Z</time>
+        <desc>AGL 136.3m | Roll -3.4° Pitch 2.2° Yaw -18.0°</desc>
+      </trkpt>
+      <trkpt lat="-0.001978" lon="-0.002974">
+        <ele>170.37</ele>
+        <time>2025-06-15T10:02:50.00333667Z</time>
+        <desc>AGL 135.4m | Roll -3.3° Pitch 2.2° Yaw 0.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.001903" lon="-0.002942">
+        <ele>169.39</ele>
+        <time>2025-06-15T10:02:51.004337671Z</time>
+        <desc>AGL 134.4m | Roll -3.2° Pitch 2.1° Yaw 18.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.001826" lon="-0.002898">
+        <ele>168.34</ele>
+        <time>2025-06-15T10:02:52.005338672Z</time>
+        <desc>AGL 133.3m | Roll -3.0° Pitch 2.1° Yaw 36.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.001747" lon="-0.00284">
+        <ele>167.22</ele>
+        <time>2025-06-15T10:02:53.006339673Z</time>
+        <desc>AGL 132.2m | Roll -2.9° Pitch 2.0° Yaw 54.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.001666" lon="-0.002771">
+        <ele>166.03</ele>
+        <time>2025-06-15T10:02:54.007340674Z</time>
+        <desc>AGL 131.0m | Roll -2.8° Pitch 2.0° Yaw 72.1°</desc>
+      </trkpt>
+      <trkpt lat="-0.001584" lon="-0.00269">
+        <ele>164.78</ele>
+        <time>2025-06-15T10:02:55.008341675Z</time>
+        <desc>AGL 129.8m | Roll -2.6° Pitch 1.9° Yaw 90.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001499" lon="-0.002597">
+        <ele>163.48</ele>
+        <time>2025-06-15T10:02:56.009342676Z</time>
+        <desc>AGL 128.5m | Roll -2.5° Pitch 1.9° Yaw 108.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001413" lon="-0.002493">
+        <ele>162.13</ele>
+        <time>2025-06-15T10:02:57.010343677Z</time>
+        <desc>AGL 127.1m | Roll -2.4° Pitch 1.8° Yaw 126.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001326" lon="-0.002379">
+        <ele>160.75</ele>
+        <time>2025-06-15T10:02:58.011344678Z</time>
+        <desc>AGL 125.7m | Roll -2.2° Pitch 1.8° Yaw 144.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001237" lon="-0.002254">
+        <ele>159.33</ele>
+        <time>2025-06-15T10:02:59.012345679Z</time>
+        <desc>AGL 124.3m | Roll -2.1° Pitch 1.7° Yaw 162.2°</desc>
+      </trkpt>
+      <trkpt lat="-0.001147" lon="-0.002119">
+        <ele>157.89</ele>
+        <time>2025-06-15T10:03:00.01334668Z</time>
+        <desc>AGL 122.9m | Roll -1.9° Pitch 1.7° Yaw -179.8°</desc>
+      </trkpt>
+      <trkpt lat="-0.001055" lon="-0.001976">
+        <ele>156.44</ele>
+        <time>2025-06-15T10:03:01.014347681Z</time>
+        <desc>AGL 121.4m | Roll -1.8° Pitch 1.6° Yaw -161.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.000963" lon="-0.001824">
+        <ele>154.82</ele>
+        <time>2025-06-15T10:03:02.015348682Z</time>
+        <desc>AGL 119.8m | Roll -1.6° Pitch 1.5° Yaw -143.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.000869" lon="-0.001664">
+        <ele>142.8</ele>
+        <time>2025-06-15T10:03:03.016349683Z</time>
+        <desc>AGL 107.8m | Roll -1.4° Pitch 1.5° Yaw -125.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.000775" lon="-0.001497">
+        <ele>130.79</ele>
+        <time>2025-06-15T10:03:04.017350684Z</time>
+        <desc>AGL 95.8m | Roll -1.3° Pitch 1.4° Yaw -107.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.000679" lon="-0.001324">
+        <ele>118.78</ele>
+        <time>2025-06-15T10:03:05.018351685Z</time>
+        <desc>AGL 83.8m | Roll -1.1° Pitch 1.4° Yaw -89.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.000583" lon="-0.001145">
+        <ele>106.77</ele>
+        <time>2025-06-15T10:03:06.019352686Z</time>
+        <desc>AGL 71.8m | Roll -1.0° Pitch 1.3° Yaw -71.7°</desc>
+      </trkpt>
+      <trkpt lat="-0.000487" lon="-0.000961">
+        <ele>94.76</ele>
+        <time>2025-06-15T10:03:07.020353687Z</time>
+        <desc>AGL 59.8m | Roll -0.8° Pitch 1.2° Yaw -53.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.000389" lon="-0.000772">
+        <ele>82.74</ele>
+        <time>2025-06-15T10:03:08.021354688Z</time>
+        <desc>AGL 47.7m | Roll -0.6° Pitch 1.2° Yaw -35.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.000292" lon="-0.000581">
+        <ele>70.73</ele>
+        <time>2025-06-15T10:03:09.022355689Z</time>
+        <desc>AGL 35.7m | Roll -0.5° Pitch 1.1° Yaw -17.6°</desc>
+      </trkpt>
+      <trkpt lat="-0.000194" lon="-0.000387">
+        <ele>58.72</ele>
+        <time>2025-06-15T10:03:10.02335669Z</time>
+        <desc>AGL 23.7m | Roll -0.3° Pitch 1.1° Yaw 0.4°</desc>
+      </trkpt>
+      <trkpt lat="-9.6e-05" lon="-0.000191">
+        <ele>46.71</ele>
+        <time>2025-06-15T10:03:11.024357691Z</time>
+        <desc>AGL 11.7m | Roll -0.2° Pitch 1.0° Yaw 18.4°</desc>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
