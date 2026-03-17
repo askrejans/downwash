@@ -1,0 +1,76 @@
+version: 2
+
+project_name: downwash
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: downwash
+    main: ./cmd/downwash
+    binary: downwash
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Exclude windows/arm64 if desired; goreleaser skips unsupported combos.
+    ignore:
+      - goos: windows
+        goarch: arm64  # keep windows/arm64 — supported since Go 1.17
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: downwash
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - samples/*
+
+nfpms:
+  - id: downwash-linux
+    package_name: downwash
+    vendor: arvis
+    homepage: https://github.com/arvis/downwash
+    maintainer: arvis
+    description: DJI drone post-flight analysis toolkit
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    dependencies:
+      - exiftool
+      - ffmpeg
+    contents:
+      - src: ./README.md
+        dst: /usr/share/doc/downwash/README.md
+    bindir: /usr/bin
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - typo

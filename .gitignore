@@ -1,0 +1,37 @@
+# ────────────────────────────────────────────────────────────────────────────
+# downwash .gitignore
+# ────────────────────────────────────────────────────────────────────────────
+
+# Compiled binaries
+downwash
+downwash.exe
+dist/
+
+# Go toolchain
+*.test
+*.out
+vendor/
+
+# goreleaser
+dist/
+
+# macOS
+.DS_Store
+*.swp
+
+# Editor
+.vscode/
+.idea/
+*.iml
+
+# Output artefacts (keep samples/)
+*.gpx
+*.pdf
+!samples/*.gpx
+!samples/*.pdf
+*.mp4
+!samples/*.mp4
+
+# Don't ignore PNG charts in samples/
+*.png
+!samples/*.png
