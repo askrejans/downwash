@@ -4,11 +4,14 @@
 
 `downwash` processes DJI MP4 video files and produces a complete post-flight package — GPX tracks, altitude charts, flight-path maps, Markdown reports, and aviation-themed PDF briefings — from the embedded telemetry captured by your drone.
 
+![logo](https://github.com/user-attachments/assets/60bcbb25-c3ab-4681-a9bd-4298853612d9)
+
 > *Downwash* is the aviation term for the air pushed downward by a rotor — your drone's data, pushed straight to you.
 
 > **Tested with:** DJI Mini 4 Pro
 
 ---
+
 
 ## Features
 
