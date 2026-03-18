@@ -17,6 +17,7 @@ import (
 	vgdraw "gonum.org/v1/plot/vg/draw"
 	"gonum.org/v1/plot/vg/vgimg"
 
+	"github.com/askrejans/downwash/internal/geo"
 	"github.com/askrejans/downwash/internal/telemetry"
 )
 
@@ -27,20 +28,23 @@ var (
 	colGrid       = color.RGBA{R: 36, G: 41, B: 52, A: 255}   // subtle grid
 	colASL        = color.RGBA{R: 99, G: 155, B: 255, A: 255}  // soft steel blue
 	colAGL        = color.RGBA{R: 56, G: 203, B: 137, A: 255}  // muted emerald
+	colSpeed      = color.RGBA{R: 255, G: 180, B: 50, A: 255}  // warm amber
 	colAxes       = color.RGBA{R: 140, G: 150, B: 175, A: 255} // soft grey-blue
 	colTitle      = color.RGBA{R: 200, G: 210, B: 235, A: 255} // subtle light
 )
 
 // ---------- AltitudeProfile -------------------------------------------------
 
-// AltitudeProfile renders a two-panel PNG chart (ASL on top, AGL below)
-// showing altitude over flight time. outputPath must end in ".png".
+// AltitudeProfile renders a three-panel PNG chart (ASL top, AGL middle,
+// Speed bottom) showing altitude and speed over flight time.
+// outputPath must end in ".png".
 func AltitudeProfile(frames []telemetry.Frame, title, outputPath string) error {
 	if len(frames) == 0 {
 		return fmt.Errorf("chart: no frames to plot")
 	}
 
 	aslPts, aglPts := buildAltPts(frames)
+	spdPts := buildSpeedPts(frames)
 
 	pASL, err := newDarkPlot(title+" \u2014 Altitude ASL", "Time (s)", "Altitude ASL (m)")
 	if err != nil {
@@ -58,7 +62,15 @@ func AltitudeProfile(frames []telemetry.Frame, title, outputPath string) error {
 		return fmt.Errorf("chart: AGL line: %w", err)
 	}
 
-	return saveTwoPanel(pASL, pAGL, 1600, 900, outputPath)
+	pSpd, err := newDarkPlot("Ground Speed", "Time (s)", "Speed (km/h)")
+	if err != nil {
+		return fmt.Errorf("chart: create speed plot: %w", err)
+	}
+	if err := addLine(pSpd, spdPts, colSpeed); err != nil {
+		return fmt.Errorf("chart: speed line: %w", err)
+	}
+
+	return saveThreePanel(pASL, pAGL, pSpd, 1600, 1200, outputPath)
 }
 
 // ---------- helpers ---------------------------------------------------------
@@ -79,6 +91,45 @@ func buildAltPts(frames []telemetry.Frame) (asl, agl plotter.XYs) {
 		agl = append(agl, plotter.XY{X: t, Y: f.AltRelative})
 	}
 	return
+}
+
+// buildSpeedPts computes instantaneous ground speed (km/h) from GPS deltas,
+// downsampled to ~1 Hz buckets for a smooth curve.
+func buildSpeedPts(frames []telemetry.Frame) plotter.XYs {
+	const bucketSec = 1.0
+	var pts plotter.XYs
+
+	lastBucket := -1
+	var bucketFrame telemetry.Frame
+	hasBucket := false
+
+	for _, f := range frames {
+		if f.Lat == 0 && f.Lon == 0 {
+			continue
+		}
+		bucket := int(f.SampleTime.Seconds() / bucketSec)
+		if bucket == lastBucket {
+			continue
+		}
+
+		if hasBucket {
+			dt := f.SampleTime.Seconds() - bucketFrame.SampleTime.Seconds()
+			if dt > 0 {
+				d := geo.HaversineM(bucketFrame.Lat, bucketFrame.Lon, f.Lat, f.Lon)
+				if d < geo.MaxGPSJitterM {
+					spd := d / dt // m/s
+					if spd <= geo.MaxPlausibleSpeedMS {
+						pts = append(pts, plotter.XY{X: f.SampleTime.Seconds(), Y: spd * 3.6}) // km/h
+					}
+				}
+			}
+		}
+
+		bucketFrame = f
+		lastBucket = bucket
+		hasBucket = true
+	}
+	return pts
 }
 
 // newDarkPlot creates a gonum plot styled with the dark aviation palette.
@@ -161,14 +212,19 @@ func fillPolygon(pts plotter.XYs) plotter.XYs {
 	return out
 }
 
-// saveTwoPanel renders top and bottom plots stacked vertically into a single PNG.
-func saveTwoPanel(top, bot *plot.Plot, widthPx, heightPx int, outputPath string) error {
+// saveThreePanel renders three plots stacked vertically into a single PNG.
+func saveThreePanel(top, mid, bot *plot.Plot, widthPx, heightPx int, outputPath string) error {
+	panelH := heightPx / 3
 	w := vg.Length(widthPx) * vg.Inch / 96
-	h := vg.Length(heightPx/2) * vg.Inch / 96
+	h := vg.Length(panelH) * vg.Inch / 96
 
 	imgTop, err := plotToImage(top, w, h)
 	if err != nil {
 		return fmt.Errorf("chart: render top panel: %w", err)
+	}
+	imgMid, err := plotToImage(mid, w, h)
+	if err != nil {
+		return fmt.Errorf("chart: render middle panel: %w", err)
 	}
 	imgBot, err := plotToImage(bot, w, h)
 	if err != nil {
@@ -178,16 +234,20 @@ func saveTwoPanel(top, bot *plot.Plot, widthPx, heightPx int, outputPath string)
 	combined := image.NewRGBA(image.Rect(0, 0, widthPx, heightPx))
 	draw.Draw(combined, combined.Bounds(), &image.Uniform{colBackground}, image.Point{}, draw.Src)
 
-	topBounds := imgTop.Bounds()
-	for y := 0; y < heightPx/2 && y < topBounds.Max.Y; y++ {
-		for x := 0; x < widthPx && x < topBounds.Max.X; x++ {
-			combined.Set(x, y, imgTop.At(x, y))
-		}
+	panels := []struct {
+		img    image.Image
+		yStart int
+	}{
+		{imgTop, 0},
+		{imgMid, panelH},
+		{imgBot, panelH * 2},
 	}
-	botBounds := imgBot.Bounds()
-	for y := 0; y < heightPx/2 && y < botBounds.Max.Y; y++ {
-		for x := 0; x < widthPx && x < botBounds.Max.X; x++ {
-			combined.Set(x, y+heightPx/2, imgBot.At(x, y))
+	for _, p := range panels {
+		b := p.img.Bounds()
+		for y := 0; y < panelH && y < b.Max.Y; y++ {
+			for x := 0; x < widthPx && x < b.Max.X; x++ {
+				combined.Set(x, y+p.yStart, p.img.At(x, y))
+			}
 		}
 	}
 

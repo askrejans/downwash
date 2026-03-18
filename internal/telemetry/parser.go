@@ -55,6 +55,21 @@ type FlightStats struct {
 	StartLon      float64
 	EndLat        float64
 	EndLon        float64
+
+	// Altitude dynamics.
+	AltGainM      float64 // total climb (sum of positive AGL deltas), metres
+	AltLossM      float64 // total descent (sum of negative AGL deltas), metres
+	MaxClimbMS    float64 // max vertical climb rate, m/s (positive = up)
+	MaxDescentMS  float64 // max vertical descent rate, m/s (positive = down)
+
+	// Attitude extremes.
+	MaxRoll       float64 // degrees (absolute max)
+	MaxPitch      float64 // degrees (absolute max)
+	MaxYawRate    float64 // degrees/s
+
+	// Distance from home (takeoff point).
+	MaxHomeDist   float64 // metres, max great-circle distance from start
+
 	// Camera settings from the first valid frame.
 	ISO          int
 	ShutterSpeed string
@@ -290,8 +305,8 @@ func ComputeStats(frames []Frame) FlightStats {
 	s.ColorTemp = frames[0].ColorTemperature
 
 	var gpsCount int
-	var prevDt float64
 
+	// ── Per-frame stats (altitude, attitude, home distance) ─────────────
 	for i, f := range frames {
 		if f.Lat != 0 || f.Lon != 0 {
 			gpsCount++
@@ -310,31 +325,98 @@ func ComputeStats(frames []Frame) FlightStats {
 			s.MinAltAGL = f.AltRelative
 		}
 
+		// Max distance from home (takeoff point).
+		if s.StartLat != 0 || s.StartLon != 0 {
+			homeDist := geo.HaversineM(s.StartLat, s.StartLon, f.Lat, f.Lon)
+			if homeDist < geo.MaxGPSJitterM*20 && homeDist > s.MaxHomeDist {
+				s.MaxHomeDist = homeDist
+			}
+		}
+
+		// Attitude extremes (absolute values).
+		if absVal := math.Abs(f.Roll); absVal > s.MaxRoll {
+			s.MaxRoll = absVal
+		}
+		if absVal := math.Abs(f.Pitch); absVal > s.MaxPitch {
+			s.MaxPitch = absVal
+		}
+
 		if i > 0 {
 			prev := frames[i-1]
 			dt := f.SampleTime.Seconds() - prev.SampleTime.Seconds()
 			if dt <= 0 {
-				dt = prevDt
+				continue
 			}
-			d := geo.HaversineM(prev.Lat, prev.Lon, f.Lat, f.Lon)
-			if d < geo.MaxGPSJitterM { // ignore GPS teleportation spikes
-				if dt > 0 {
-					spd := d / dt
-					if spd > geo.MaxPlausibleSpeedMS {
-						// GPS acquisition noise — small position error at
-						// high sample rate produces implausible speed.
-						continue
-					}
-					s.DistanceM += d
-					if spd > s.MaxSpeedMS {
-						s.MaxSpeedMS = spd
-					}
+
+			// Altitude gain/loss and vertical speed.
+			dAlt := f.AltRelative - prev.AltRelative
+			if math.Abs(dAlt) < 50 { // ignore altitude jitter spikes
+				if dAlt > 0 {
+					s.AltGainM += dAlt
 				} else {
-					s.DistanceM += d
+					s.AltLossM += -dAlt
+				}
+				vSpeed := dAlt / dt
+				if vSpeed > s.MaxClimbMS {
+					s.MaxClimbMS = vSpeed
+				}
+				if -vSpeed > s.MaxDescentMS {
+					s.MaxDescentMS = -vSpeed
 				}
 			}
-			prevDt = dt
+
+			// Yaw rate.
+			dYaw := f.Yaw - prev.Yaw
+			// Normalize to [-180, 180].
+			if dYaw > 180 {
+				dYaw -= 360
+			} else if dYaw < -180 {
+				dYaw += 360
+			}
+			yawRate := math.Abs(dYaw / dt)
+			if yawRate < 1000 && yawRate > s.MaxYawRate { // filter noise
+				s.MaxYawRate = yawRate
+			}
 		}
+	}
+
+	// ── Distance and speed from ~1 Hz downsampled GPS ──────────────────
+	// Computing distance/speed at the raw ~30 Hz rate accumulates GPS
+	// position noise into phantom distance and unreliable speed values.
+	// Downsampling to ~1 Hz gives physically meaningful results.
+	const bucketSec = 1.0
+	lastBucket := -1
+	var bucketFrame Frame
+	hasBucket := false
+
+	for _, f := range frames {
+		if f.Lat == 0 && f.Lon == 0 {
+			continue
+		}
+		bucket := int(f.SampleTime.Seconds() / bucketSec)
+		if bucket == lastBucket {
+			continue
+		}
+
+		if hasBucket {
+			dt := f.SampleTime.Seconds() - bucketFrame.SampleTime.Seconds()
+			if dt > 0 {
+				d := geo.HaversineM(bucketFrame.Lat, bucketFrame.Lon, f.Lat, f.Lon)
+				if d < geo.MaxGPSJitterM {
+					spd := d / dt
+					if spd <= geo.MaxPlausibleSpeedMS {
+						s.DistanceM += d
+						if spd > s.MaxSpeedMS {
+							s.MaxSpeedMS = spd
+						}
+					}
+				}
+			}
+		}
+
+		bucketFrame = f
+		lastBucket = bucket
+		hasBucket = true
 	}
 
 	s.GPSPointCount = gpsCount

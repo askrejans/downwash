@@ -23,7 +23,14 @@ type Options struct {
 	Bitrate string
 	// Preset controls encode speed/quality trade-off. Default: "medium".
 	Preset string
-	Logger *slog.Logger
+	// StartOffsetMS trims the beginning of the video (milliseconds). 0 = no trim.
+	StartOffsetMS int
+	// EndTrimMS trims the end of the video (milliseconds from end). 0 = no trim.
+	EndTrimMS int
+	// DurationMS is the total original video duration in milliseconds (required
+	// when EndTrimMS > 0 to compute the end time). Ignored when EndTrimMS is 0.
+	DurationMS int
+	Logger     *slog.Logger
 }
 
 // TranscodeError wraps an ffmpeg subprocess failure.
@@ -58,8 +65,12 @@ func Transcode(ctx context.Context, opts Options) error {
 	}
 
 	libCodec := "libx264"
+	profile := "high"
+	level := "5.1"
 	if codec == "h265" {
 		libCodec = "libx265"
+		profile = "main"
+		level = "5.1"
 	}
 
 	// Parse bitrate number and unit suffix for maxrate/bufsize calculation.
@@ -69,17 +80,36 @@ func Transcode(ctx context.Context, opts Options) error {
 		return fmt.Errorf("ffmpeg: invalid bitrate %q: %w", bitrate, err)
 	}
 
-	args := []string{
-		"-y",
-		"-i", opts.InputPath,
+	// Build input-side seek and output duration args for time trimming.
+	var preInputArgs []string
+	var postInputArgs []string
+	if opts.StartOffsetMS > 0 {
+		preInputArgs = append(preInputArgs, "-ss", fmtMillis(opts.StartOffsetMS))
+	}
+	if opts.EndTrimMS > 0 && opts.DurationMS > 0 {
+		endMS := opts.DurationMS - opts.EndTrimMS
+		if opts.StartOffsetMS > 0 {
+			endMS -= opts.StartOffsetMS
+		}
+		if endMS > 0 {
+			postInputArgs = append(postInputArgs, "-t", fmtMillis(endMS))
+		}
+	}
+
+	args := []string{"-y"}
+	args = append(args, preInputArgs...)
+	args = append(args,
+		"-i", opts.InputPath)
+	args = append(args, postInputArgs...)
+	args = append(args,
 		"-map", "0:v:0",
 		"-c:v", libCodec,
 		"-b:v", bitrate,
 		"-maxrate", maxrate,
 		"-bufsize", bufsize,
 		"-preset", preset,
-		"-profile:v", "high",
-		"-level:v", "5.1",
+		"-profile:v", profile,
+		"-level:v", level,
 		"-pix_fmt", "yuv420p",
 		"-color_range", "tv",
 		"-colorspace", "bt709",
@@ -87,7 +117,7 @@ func Transcode(ctx context.Context, opts Options) error {
 		"-color_primaries", "bt709",
 		"-movflags", "+faststart",
 		opts.OutputPath,
-	}
+	)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 
@@ -119,6 +149,16 @@ func Transcode(ctx context.Context, opts Options) error {
 		return fmt.Errorf("ffmpeg: wait: %w", err)
 	}
 	return nil
+}
+
+// fmtMillis formats milliseconds as an ffmpeg time string "H:MM:SS.mmm".
+func fmtMillis(ms int) string {
+	totalSec := ms / 1000
+	frac := ms % 1000
+	h := totalSec / 3600
+	m := (totalSec % 3600) / 60
+	s := totalSec % 60
+	return fmt.Sprintf("%d:%02d:%02d.%03d", h, m, s, frac)
 }
 
 // parseBitrateParams extracts maxrate (4/3 x bitrate) and bufsize (2 x bitrate)

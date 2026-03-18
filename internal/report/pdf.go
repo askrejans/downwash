@@ -34,11 +34,12 @@ var (
 
 // ---------- PDF ─────────────────────────────────────────────────────────────
 
-// PDF generates a three-page aviation-themed post-flight briefing PDF.
+// PDF generates a four-page aviation-themed post-flight briefing PDF.
 //
 //   - Page 1: Cover — call-sign banner, key stats grid, GPS track chart.
-//   - Page 2: Altitude profiles (ASL + AGL charts stacked).
-//   - Page 3: Tabular telemetry — camera settings, attitude extremes, footer.
+//   - Page 2: Altitude & speed profiles (ASL + AGL + Speed charts stacked).
+//   - Page 3: Flight dynamics — altitude dynamics, attitude, distance from home.
+//   - Page 4: Detailed telemetry — camera settings, GPS navigation, performance.
 //
 // altitudePNG and trackPNG are paths to pre-rendered chart images; pass ""
 // to skip the corresponding image.
@@ -51,24 +52,30 @@ func PDF(
 	pdf := gofpdf.New("L", "mm", "A4", "")
 	pdf.SetAutoPageBreak(false, 0)
 
+	const totalPages = 4
+
 	// ── Page 1: Cover + GPS track ────────────────────────────────────────────
 	addPage(pdf)
-	drawCoverPage(pdf, stats, videoName, codec, trackPNG)
+	drawCoverPage(pdf, stats, videoName, codec, trackPNG, totalPages)
 
-	// ── Page 2: Altitude profiles ────────────────────────────────────────────
+	// ── Page 2: Altitude & speed profiles ────────────────────────────────────
 	addPage(pdf)
-	drawAltitudePage(pdf, stats, altitudePNG)
+	drawAltitudePage(pdf, stats, altitudePNG, totalPages)
 
-	// ── Page 3: Detailed telemetry table ────────────────────────────────────
+	// ── Page 3: Flight dynamics ──────────────────────────────────────────────
 	addPage(pdf)
-	drawDetailPage(pdf, stats, codec)
+	drawDynamicsPage(pdf, stats, totalPages)
+
+	// ── Page 4: Detailed telemetry table ────────────────────────────────────
+	addPage(pdf)
+	drawDetailPage(pdf, stats, codec, totalPages)
 
 	return pdf.OutputFileAndClose(outputPath)
 }
 
 // ---------- page builders ---------------------------------------------------
 
-func drawCoverPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, videoName, codec, trackPNG string) {
+func drawCoverPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, videoName, codec, trackPNG string, totalPages int) {
 	w, h := pdfPageW, pdfPageH
 
 	// Dark background.
@@ -116,8 +123,8 @@ func drawCoverPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, videoName, cod
 		{"MAX ALT (AGL)", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
 		{"MAX SPEED", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.MaxSpeedMS, stats.MaxSpeedMS*3.6)},
 		{"AVG SPEED", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.AvgSpeedMS, stats.AvgSpeedMS*3.6)},
-		{"GPS POINTS", fmt.Sprintf("%d", stats.GPSPointCount)},
-		{"FRAMES", fmt.Sprintf("%d", stats.FrameCount)},
+		{"MAX FROM HOME", fmt.Sprintf("%.0f m", stats.MaxHomeDist)},
+		{"TOTAL CLIMB", fmt.Sprintf("%.0f m", stats.AltGainM)},
 	}
 
 	labelW := 48.0
@@ -163,10 +170,10 @@ func drawCoverPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, videoName, cod
 	}
 
 	// Footer.
-	drawFooter(pdf, 1, 3)
+	drawFooter(pdf, 1, totalPages)
 }
 
-func drawAltitudePage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, altitudePNG string) {
+func drawAltitudePage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, altitudePNG string, totalPages int) {
 	w, h := pdfPageW, pdfPageH
 
 	setFill(pdf, colHeaderBg)
@@ -178,14 +185,14 @@ func drawAltitudePage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, altitudePNG
 	pdf.SetFont("Helvetica", "B", 11)
 	setTextColor(pdf, colAccent)
 	pdf.SetXY(pdfMargin, 3)
-	pdf.CellFormat(w-pdfMargin*2, 9, "ALTITUDE PROFILE", "", 0, "L", false, 0, "")
+	pdf.CellFormat(w-pdfMargin*2, 9, "ALTITUDE & SPEED PROFILE", "", 0, "L", false, 0, "")
 
 	// Stats strip.
 	strip := []tableRow{
 		{"ASL MAX", fmt.Sprintf("%.1f m", stats.MaxAltASL)},
-		{"ASL MIN", fmt.Sprintf("%.1f m", stats.MinAltASL)},
 		{"AGL MAX", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
-		{"AGL MIN", fmt.Sprintf("%.1f m", stats.MinAltAGL)},
+		{"MAX SPEED", fmt.Sprintf("%.0f km/h", stats.MaxSpeedMS*3.6)},
+		{"AVG SPEED", fmt.Sprintf("%.0f km/h", stats.AvgSpeedMS*3.6)},
 		{"DURATION", formatDuration(stats.Duration)},
 	}
 	stripX := pdfMargin
@@ -213,10 +220,64 @@ func drawAltitudePage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, altitudePNG
 		embedImage(pdf, altitudePNG, pdfMargin, 31, w-pdfMargin*2, h-31-18)
 	}
 
-	drawFooter(pdf, 2, 3)
+	drawFooter(pdf, 2, totalPages)
 }
 
-func drawDetailPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, codec string) {
+func drawDynamicsPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, totalPages int) {
+	w, h := pdfPageW, pdfPageH
+
+	setFill(pdf, colHeaderBg)
+	pdf.Rect(0, 0, w, h, "F")
+
+	// Header.
+	setFill(pdf, colRowDark)
+	pdf.Rect(0, 0, w, 14, "F")
+	pdf.SetFont("Helvetica", "B", 11)
+	setTextColor(pdf, colAccent)
+	pdf.SetXY(pdfMargin, 3)
+	pdf.CellFormat(w-pdfMargin*2, 9, "FLIGHT DYNAMICS", "", 0, "L", false, 0, "")
+
+	y := 18.0
+
+	// Altitude dynamics section.
+	y = drawSectionHeader(pdf, "ALTITUDE DYNAMICS", y)
+	altRows := []tableRow{
+		{"Max Altitude ASL", fmt.Sprintf("%.1f m", stats.MaxAltASL)},
+		{"Min Altitude ASL", fmt.Sprintf("%.1f m", stats.MinAltASL)},
+		{"Altitude Range ASL", fmt.Sprintf("%.1f m", stats.MaxAltASL-stats.MinAltASL)},
+		{"Max Altitude AGL", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
+		{"Min Altitude AGL", fmt.Sprintf("%.1f m", stats.MinAltAGL)},
+		{"Total Climb", fmt.Sprintf("%.0f m", stats.AltGainM)},
+		{"Total Descent", fmt.Sprintf("%.0f m", stats.AltLossM)},
+		{"Max Climb Rate", fmt.Sprintf("%.1f m/s", stats.MaxClimbMS)},
+		{"Max Descent Rate", fmt.Sprintf("%.1f m/s", stats.MaxDescentMS)},
+	}
+	y = drawKVTable(pdf, altRows, y+1)
+
+	y += 6
+	y = drawSectionHeader(pdf, "ATTITUDE & ORIENTATION", y)
+	attRows := []tableRow{
+		{"Max Roll", fmt.Sprintf("%.1f\xb0", stats.MaxRoll)},
+		{"Max Pitch", fmt.Sprintf("%.1f\xb0", stats.MaxPitch)},
+		{"Max Yaw Rate", fmt.Sprintf("%.1f\xb0/s", stats.MaxYawRate)},
+	}
+	y = drawKVTable(pdf, attRows, y+1)
+
+	y += 6
+	y = drawSectionHeader(pdf, "RANGE & DISTANCE", y)
+	rngRows := []tableRow{
+		{"Total Distance", fmt.Sprintf("%.2f km  (%.0f m)", stats.DistanceM/1000, stats.DistanceM)},
+		{"Max Distance from Home", fmt.Sprintf("%.0f m  (%.2f km)", stats.MaxHomeDist, stats.MaxHomeDist/1000)},
+		{"Max Speed", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.MaxSpeedMS, stats.MaxSpeedMS*3.6)},
+		{"Avg Speed", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.AvgSpeedMS, stats.AvgSpeedMS*3.6)},
+	}
+	y = drawKVTable(pdf, rngRows, y+1)
+	_ = y
+
+	drawFooter(pdf, 3, totalPages)
+}
+
+func drawDetailPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, codec string, totalPages int) {
 	w, h := pdfPageW, pdfPageH
 
 	setFill(pdf, colHeaderBg)
@@ -276,7 +337,7 @@ func drawDetailPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, codec string)
 			"the drone manufacturer's safety guidelines.",
 		"", "L", false)
 
-	drawFooter(pdf, 3, 3)
+	drawFooter(pdf, totalPages, totalPages)
 }
 
 // ---------- layout helpers --------------------------------------------------

@@ -64,6 +64,11 @@ func Markdown(stats telemetry.FlightStats, videoName, codec, outputPath string) 
 	sb.WriteString(fmt.Sprintf("| **Min Altitude ASL** | `%.1f m` |\n", stats.MinAltASL))
 	sb.WriteString(fmt.Sprintf("| **Max Altitude AGL** | `%.1f m` |\n", stats.MaxAltAGL))
 	sb.WriteString(fmt.Sprintf("| **Min Altitude AGL** | `%.1f m` |\n", stats.MinAltAGL))
+	sb.WriteString(fmt.Sprintf("| **Altitude Range ASL** | `%.1f m` |\n", stats.MaxAltASL-stats.MinAltASL))
+	sb.WriteString(fmt.Sprintf("| **Total Climb** | `%.0f m` |\n", stats.AltGainM))
+	sb.WriteString(fmt.Sprintf("| **Total Descent** | `%.0f m` |\n", stats.AltLossM))
+	sb.WriteString(fmt.Sprintf("| **Max Climb Rate** | `%.1f m/s` |\n", stats.MaxClimbMS))
+	sb.WriteString(fmt.Sprintf("| **Max Descent Rate** | `%.1f m/s` |\n", stats.MaxDescentMS))
 	sb.WriteString("\n---\n\n")
 
 	// Speed.
@@ -74,6 +79,17 @@ func Markdown(stats telemetry.FlightStats, videoName, codec, outputPath string) 
 		stats.MaxSpeedMS, stats.MaxSpeedMS*3.6))
 	sb.WriteString(fmt.Sprintf("| **Avg Speed** | `%.1f m/s` / `%.1f km/h` |\n",
 		stats.AvgSpeedMS, stats.AvgSpeedMS*3.6))
+	sb.WriteString("\n---\n\n")
+
+	// Flight dynamics.
+	sb.WriteString("## Flight Dynamics\n\n")
+	sb.WriteString("| Metric | Value |\n")
+	sb.WriteString("|:---|:---|\n")
+	sb.WriteString(fmt.Sprintf("| **Max Distance from Home** | `%.0f m` / `%.2f km` |\n",
+		stats.MaxHomeDist, stats.MaxHomeDist/1000))
+	sb.WriteString(fmt.Sprintf("| **Max Roll** | `%.1f\u00b0` |\n", stats.MaxRoll))
+	sb.WriteString(fmt.Sprintf("| **Max Pitch** | `%.1f\u00b0` |\n", stats.MaxPitch))
+	sb.WriteString(fmt.Sprintf("| **Max Yaw Rate** | `%.1f\u00b0/s` |\n", stats.MaxYawRate))
 	sb.WriteString("\n---\n\n")
 
 	// Camera settings.

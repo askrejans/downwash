@@ -316,8 +316,11 @@ func TestFilePickerSelectDir(t *testing.T) {
 
 func TestNewOptionsModelDefaults(t *testing.T) {
 	m := newOptionsModel("/tmp/test.mp4", false)
-	if !m.produceGPX || !m.produceCharts || !m.produceMarkdown || !m.producePDF {
+	if !m.produceGPX || !m.produceCharts || !m.produceMarkdown || !m.produceMetadata || !m.producePDF {
 		t.Error("all outputs should be enabled by default")
+	}
+	if m.zipOutput {
+		t.Error("zip should be off by default")
 	}
 	if m.transcode {
 		t.Error("transcode should be off by default")
@@ -422,12 +425,20 @@ func TestOptionsModelCycleCodec(t *testing.T) {
 func TestOptionsModelToPipelineOpts(t *testing.T) {
 	m := newOptionsModel("/tmp/test.mp4", false)
 	m.produceGPX = false
+	m.produceMetadata = false
+	m.zipOutput = true
 	m.transcode = true
 	m.transcodeCodec = 1 // h265
 
 	opts := m.toPipelineOpts()
 	if !opts.SkipGPX {
 		t.Error("SkipGPX should be true when GPX is disabled")
+	}
+	if !opts.SkipMetadata {
+		t.Error("SkipMetadata should be true when metadata is disabled")
+	}
+	if !opts.ZipOutput {
+		t.Error("ZipOutput should be true when zip is enabled")
 	}
 	if opts.SkipCharts || opts.SkipMarkdown || opts.SkipPDF {
 		t.Error("other skip flags should be false")
@@ -437,6 +448,37 @@ func TestOptionsModelToPipelineOpts(t *testing.T) {
 	}
 	if opts.TranscodeCodec != "h265" {
 		t.Errorf("TranscodeCodec = %q, want h265", opts.TranscodeCodec)
+	}
+}
+
+func TestOptionsModelToggleMetadata(t *testing.T) {
+	m := newOptionsModel("/tmp/test.mp4", false)
+	// Find metadata item.
+	items := m.menuItems()
+	for i, item := range items {
+		if item == "metadata" {
+			m.cursor = i
+			break
+		}
+	}
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if m.produceMetadata {
+		t.Error("metadata should be toggled off")
+	}
+}
+
+func TestOptionsModelToggleZip(t *testing.T) {
+	m := newOptionsModel("/tmp/test.mp4", false)
+	items := m.menuItems()
+	for i, item := range items {
+		if item == "zip" {
+			m.cursor = i
+			break
+		}
+	}
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	if !m.zipOutput {
+		t.Error("zip should be toggled on")
 	}
 }
 
@@ -467,23 +509,10 @@ func TestOptionsModelCancel(t *testing.T) {
 func TestOptionsModelView(t *testing.T) {
 	m := newOptionsModel("/tmp/test.mp4", false)
 	view := m.view()
-	if !strings.Contains(view, "GPX") {
-		t.Error("options view missing GPX")
-	}
-	if !strings.Contains(view, "Charts") {
-		t.Error("options view missing Charts")
-	}
-	if !strings.Contains(view, "Markdown") {
-		t.Error("options view missing Markdown")
-	}
-	if !strings.Contains(view, "PDF") {
-		t.Error("options view missing PDF")
-	}
-	if !strings.Contains(view, "Transcode") {
-		t.Error("options view missing Transcode")
-	}
-	if !strings.Contains(view, "Start Processing") {
-		t.Error("options view missing Start button")
+	for _, want := range []string{"GPX", "Charts", "Markdown", "Metadata JSON", "PDF", "ZIP package", "Transcode", "Start Processing"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("options view missing %q", want)
+		}
 	}
 }
 
@@ -495,6 +524,76 @@ func TestOptionsModelBatchView(t *testing.T) {
 	}
 	if !strings.Contains(view, "Start Batch Processing") {
 		t.Error("batch options should show Start Batch Processing")
+	}
+}
+
+func TestOptionsModelTimeTrim(t *testing.T) {
+	m := newOptionsModel("/tmp/test.mp4", false)
+
+	// Find startOffset item.
+	items := m.menuItems()
+	for i, item := range items {
+		if item == "startOffset" {
+			m.cursor = i
+			break
+		}
+	}
+
+	// Enter editing mode.
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.editingField != "startOffset" {
+		t.Error("should be editing startOffset")
+	}
+
+	// Type "500".
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'5'}})
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}})
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}})
+	if m.startOffsetMS != "500" {
+		t.Errorf("startOffsetMS = %q, want 500", m.startOffsetMS)
+	}
+
+	// Confirm editing.
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.editingField != "" {
+		t.Error("should stop editing after enter")
+	}
+
+	// Check pipeline opts.
+	opts := m.toPipelineOpts()
+	if opts.StartOffsetMS != 500 {
+		t.Errorf("StartOffsetMS = %d, want 500", opts.StartOffsetMS)
+	}
+}
+
+func TestOptionsModelTimeTrimBackspace(t *testing.T) {
+	m := newOptionsModel("/tmp/test.mp4", false)
+	m.editingField = "startOffset"
+	m.startOffsetMS = "123"
+
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if m.startOffsetMS != "12" {
+		t.Errorf("after backspace: %q, want 12", m.startOffsetMS)
+	}
+
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m, _ = m.update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if m.startOffsetMS != "0" {
+		t.Errorf("after all backspace: %q, want 0", m.startOffsetMS)
+	}
+}
+
+func TestOptionsModelViewTimeTrim(t *testing.T) {
+	m := newOptionsModel("/tmp/test.mp4", false)
+	view := m.view()
+	if !strings.Contains(view, "Start offset") {
+		t.Error("view missing Start offset")
+	}
+	if !strings.Contains(view, "End trim") {
+		t.Error("view missing End trim")
+	}
+	if !strings.Contains(view, "Time trimming") {
+		t.Error("view missing Time trimming section")
 	}
 }
 

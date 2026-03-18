@@ -2,7 +2,7 @@
 
 > **Source:** `sample_flight`  |  **Codec:** `HEVC`
 > **Date:** 2025-06-15 10:00:00 UTC
-> **Generated:** 2026-03-17 11:54 UTC by [downwash](https://github.com/askrejans/downwash)
+> **Generated:** 2026-03-18 07:49 UTC by [downwash](https://github.com/askrejans/downwash)
 
 ---
 
@@ -11,9 +11,9 @@
 | Metric | Value |
 |:---|:---|
 | **Duration** | `3m 12s` |
-| **Total Distance** | `3145 m` / `3.14 km` |
+| **Total Distance** | `2110 m` / `2.11 km` |
 | **Frames** | `5754` |
-| **GPS Points** | `5753` |
+| **GPS Points** | `5754` |
 | **Start Time** | `10:00:00 UTC` |
 | **End Time** | `10:03:11 UTC` |
 
@@ -23,9 +23,9 @@
 
 | Metric | Value |
 |:---|:---|
-| **Start Position** | `0.000000N, 0.000000E` |
-| **End Position** | `-0.000004N, -0.000008E` |
-| **Total Distance** | `3145 m` / `3.14 km` |
+| **Start Position** | `56.950000N, 24.100000E` |
+| **End Position** | `56.949996N, 24.099992E` |
+| **Total Distance** | `2110 m` / `2.11 km` |
 
 ---
 
@@ -37,6 +37,11 @@
 | **Min Altitude ASL** | `35.0 m` |
 | **Max Altitude AGL** | `140.0 m` |
 | **Min Altitude AGL** | `0.0 m` |
+| **Altitude Range ASL** | `140.0 m` |
+| **Total Climb** | `200 m` |
+| **Total Descent** | `199 m` |
+| **Max Climb Rate** | `12.0 m/s` |
+| **Max Descent Rate** | `12.0 m/s` |
 
 ---
 
@@ -44,8 +49,19 @@
 
 | Metric | Value |
 |:---|:---|
-| **Max Speed** | `24.4 m/s` / `87.9 km/h` |
-| **Avg Speed** | `16.4 m/s` / `59.0 km/h` |
+| **Max Speed** | `16.1 m/s` / `58.1 km/h` |
+| **Avg Speed** | `11.0 m/s` / `39.6 km/h` |
+
+---
+
+## Flight Dynamics
+
+| Metric | Value |
+|:---|:---|
+| **Max Distance from Home** | `335 m` / `0.33 km` |
+| **Max Roll** | `5.0°` |
+| **Max Pitch** | `3.0°` |
+| **Max Yaw Rate** | `18.0°/s` |
 
 ---
 

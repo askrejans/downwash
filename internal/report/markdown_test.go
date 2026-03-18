@@ -82,6 +82,71 @@ func TestMarkdownEmptyStats(t *testing.T) {
 	}
 }
 
+func TestMarkdownNewSections(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "report.md")
+
+	stats := telemetry.FlightStats{
+		Duration:     3 * time.Minute,
+		MaxAltASL:    155.0,
+		MinAltASL:    35.0,
+		AltGainM:     200,
+		AltLossM:     180,
+		MaxClimbMS:   3.5,
+		MaxDescentMS: 2.8,
+		MaxHomeDist:  750,
+		MaxRoll:      25.3,
+		MaxPitch:     18.7,
+		MaxYawRate:   90.5,
+	}
+
+	if err := Markdown(stats, "test", "hevc", out); err != nil {
+		t.Fatalf("Markdown() failed: %v", err)
+	}
+
+	data, _ := os.ReadFile(out)
+	content := string(data)
+	for _, want := range []string{
+		"Total Climb", "Total Descent", "Max Climb Rate", "Max Descent Rate",
+		"Flight Dynamics", "Max Distance from Home", "Max Roll", "Max Pitch", "Max Yaw Rate",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("markdown missing %q", want)
+		}
+	}
+}
+
+func TestMetadataJSONCreatesFile(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "meta.json")
+
+	frames := []telemetry.Frame{
+		{Lat: 57.0, Lon: 24.0, AltAbsolute: 100, AltRelative: 50,
+			Roll: 5.0, Pitch: -3.0, Yaw: 90.0, ISO: 100, ShutterSpeed: "1/500",
+			FNumber: 1.7, ColorTemperature: 5500},
+	}
+	stats := telemetry.ComputeStats(frames)
+
+	if err := MetadataJSON(frames, stats, "test_flight", "hevc", out); err != nil {
+		t.Fatalf("MetadataJSON() failed: %v", err)
+	}
+
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	content := string(data)
+	for _, want := range []string{
+		`"version"`, `"source"`, `"stats"`, `"frames"`,
+		`"test_flight"`, `"hevc"`, `"lat"`, `"roll_deg"`,
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("metadata JSON missing %q", want)
+		}
+	}
+}
+
 func TestFormatDuration(t *testing.T) {
 	cases := []struct {
 		d    time.Duration

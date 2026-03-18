@@ -63,6 +63,13 @@ func main() {
 	}
 	fmt.Println("wrote", mdPath)
 
+	// Metadata JSON.
+	metaPath := outDir + "/" + name + "_metadata.json"
+	if err := report.MetadataJSON(frames, stats, name, codec, metaPath); err != nil {
+		log.Fatalf("metadata json: %v", err)
+	}
+	fmt.Println("wrote", metaPath)
+
 	// PDF briefing.
 	pdfPath := outDir + "/" + name + "_briefing.pdf"
 	if err := report.PDF(stats, name, codec, altPath, trackPath, pdfPath); err != nil {
@@ -84,9 +91,9 @@ func syntheticFlight() []telemetry.Frame {
 	const baseAGL = 0.0
 	const maxAGL = 120.0
 
-	// Synthetic GPS origin — generic, far from any real city.
-	const originLat = 0.0
-	const originLon = 0.0
+	// Synthetic GPS origin — Riga, Latvia area for visible OSM map tiles.
+	const originLat = 56.95
+	const originLon = 24.10
 
 	startTime := time.Date(2025, 6, 15, 10, 0, 0, 0, time.UTC)
 

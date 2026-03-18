@@ -60,6 +60,25 @@ func TestParseBitrateParamsErrors(t *testing.T) {
 	}
 }
 
+func TestFmtMillis(t *testing.T) {
+	cases := []struct {
+		ms   int
+		want string
+	}{
+		{0, "0:00:00.000"},
+		{500, "0:00:00.500"},
+		{1000, "0:00:01.000"},
+		{61500, "0:01:01.500"},
+		{3661234, "1:01:01.234"},
+	}
+	for _, tc := range cases {
+		got := fmtMillis(tc.ms)
+		if got != tc.want {
+			t.Errorf("fmtMillis(%d) = %q, want %q", tc.ms, got, tc.want)
+		}
+	}
+}
+
 // TestCodecDefault verifies that an empty Codec string defaults to "h264".
 func TestCodecDefault(t *testing.T) {
 	codec := ""

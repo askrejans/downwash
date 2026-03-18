@@ -117,6 +117,36 @@ func TestFillPolygonEmpty(t *testing.T) {
 	}
 }
 
+func TestBuildSpeedPts(t *testing.T) {
+	// Slower-moving frames so consecutive 1s-bucket pairs stay under jitter filter.
+	n := 300 // 10 seconds at 30 fps
+	frames := make([]telemetry.Frame, n)
+	for i := range frames {
+		t2 := float64(i) / 30.0
+		frames[i] = telemetry.Frame{
+			SampleTime: time.Duration(t2 * float64(time.Second)),
+			Lat:        57.0 + testLatPerM*float64(i)*0.5, // ~0.5 m/frame → ~15 m/s
+			Lon:        24.0,
+		}
+	}
+	pts := buildSpeedPts(frames)
+	if len(pts) == 0 {
+		t.Error("buildSpeedPts returned no points")
+	}
+	for _, p := range pts {
+		if p.Y < 0 {
+			t.Errorf("speed should be non-negative, got %.2f", p.Y)
+		}
+	}
+}
+
+func TestBuildSpeedPtsEmpty(t *testing.T) {
+	pts := buildSpeedPts(nil)
+	if len(pts) != 0 {
+		t.Errorf("buildSpeedPts(nil) = %d points, want 0", len(pts))
+	}
+}
+
 func TestHaversineM(t *testing.T) {
 	// 1 degree of latitude ≈ 111 195 m.
 	got := geo.HaversineM(0, 0, 1, 0)

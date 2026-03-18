@@ -301,7 +301,9 @@ func renderResult(r pipeline.Result) string {
 		{"Altitude chart", r.AltPNGPath},
 		{"Track map", r.TrackPNGPath},
 		{"Markdown report", r.MarkdownPath},
+		{"Metadata JSON", r.MetadataPath},
 		{"PDF briefing", r.PDFPath},
+		{"ZIP package", r.ZipPath},
 		{"Transcoded video", r.VideoPath},
 	}
 	for _, item := range items {

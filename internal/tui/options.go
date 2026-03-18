@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,13 +20,20 @@ type optionsModel struct {
 	produceGPX      bool
 	produceCharts   bool
 	produceMarkdown bool
+	produceMetadata bool
 	producePDF      bool
+	zipOutput       bool
 
 	// Transcode settings.
 	transcode        bool
 	transcodeCodec   int // index into codecChoices
 	transcodeBitrate int // index into bitrateChoices
 	transcodePreset  int // index into presetChoices
+
+	// Time trim settings (milliseconds).
+	startOffsetMS string // text input buffer
+	endTrimMS     string // text input buffer
+	editingField  string // "startOffset" or "endTrim" when actively typing
 
 	confirmed bool
 	cancelled bool
@@ -44,25 +52,33 @@ func newOptionsModel(path string, isDir bool) optionsModel {
 		produceGPX:       true,
 		produceCharts:    true,
 		produceMarkdown:  true,
+		produceMetadata:  true,
 		producePDF:       true,
+		zipOutput:        false,
 		transcode:        false,
 		transcodeCodec:   0, // h264
 		transcodeBitrate: 2, // 15M
 		transcodePreset:  2, // medium
+		startOffsetMS:    "0",
+		endTrimMS:        "0",
 	}
 }
 
 // menuItems returns the list of visible menu items for cursor navigation.
 func (m optionsModel) menuItems() []string {
 	items := []string{
-		"gpx", "charts", "markdown", "pdf",
+		"gpx", "charts", "markdown", "metadata", "pdf",
 		"sep1",
+		"zip",
+		"sep2",
+		"startOffset", "endTrim",
+		"sep3",
 		"transcode",
 	}
 	if m.transcode {
 		items = append(items, "codec", "bitrate", "preset")
 	}
-	items = append(items, "sep2", "start")
+	items = append(items, "sep4", "start")
 	return items
 }
 
@@ -74,6 +90,36 @@ func (m optionsModel) update(msg tea.Msg) (optionsModel, tea.Cmd) {
 
 	items := m.menuItems()
 	maxCursor := len(items) - 1
+
+	// If actively editing a numeric field, handle text input.
+	if m.editingField != "" {
+		switch km.String() {
+		case "enter":
+			m.editingField = ""
+		case "esc":
+			m.editingField = ""
+		case "backspace":
+			val := m.getEditingValue()
+			if len(val) > 1 {
+				val = val[:len(val)-1]
+			} else {
+				val = "0"
+			}
+			m.setEditingValue(val)
+		default:
+			ch := km.String()
+			if len(ch) == 1 && ch[0] >= '0' && ch[0] <= '9' {
+				val := m.getEditingValue()
+				if val == "0" {
+					val = ch
+				} else {
+					val += ch
+				}
+				m.setEditingValue(val)
+			}
+		}
+		return m, nil
+	}
 
 	switch km.String() {
 	case "up", "k":
@@ -110,14 +156,22 @@ func (m optionsModel) update(msg tea.Msg) (optionsModel, tea.Cmd) {
 			m.produceCharts = !m.produceCharts
 		case "markdown":
 			m.produceMarkdown = !m.produceMarkdown
+		case "metadata":
+			m.produceMetadata = !m.produceMetadata
 		case "pdf":
 			m.producePDF = !m.producePDF
+		case "zip":
+			m.zipOutput = !m.zipOutput
 		case "transcode":
 			m.transcode = !m.transcode
 			// Clamp cursor if sub-options disappear.
 			if !m.transcode && m.cursor > len(m.menuItems())-1 {
 				m.cursor = len(m.menuItems()) - 1
 			}
+		case "startOffset":
+			m.editingField = "startOffset"
+		case "endTrim":
+			m.editingField = "endTrim"
 		case "start":
 			m.confirmed = true
 		}
@@ -178,7 +232,14 @@ func (m optionsModel) view() string {
 	for i, item := range items {
 		if strings.HasPrefix(item, "sep") {
 			sb.WriteString("\n")
-			if item == "sep1" {
+			switch item {
+			case "sep1":
+				sb.WriteString(optionsSectionStyle.Render("  Packaging"))
+				sb.WriteString("\n")
+			case "sep2":
+				sb.WriteString(optionsSectionStyle.Render("  Time trimming"))
+				sb.WriteString("\n")
+			case "sep3":
 				sb.WriteString(optionsSectionStyle.Render("  Video"))
 				sb.WriteString("\n")
 			}
@@ -197,8 +258,18 @@ func (m optionsModel) view() string {
 			sb.WriteString(fmt.Sprintf("  %s%s  %s\n", cursor, toggleStr(m.produceCharts), optionLabel("Charts (altitude + track map)", i == m.cursor)))
 		case "markdown":
 			sb.WriteString(fmt.Sprintf("  %s%s  %s\n", cursor, toggleStr(m.produceMarkdown), optionLabel("Markdown report", i == m.cursor)))
+		case "metadata":
+			sb.WriteString(fmt.Sprintf("  %s%s  %s\n", cursor, toggleStr(m.produceMetadata), optionLabel("Metadata JSON", i == m.cursor)))
 		case "pdf":
 			sb.WriteString(fmt.Sprintf("  %s%s  %s\n", cursor, toggleStr(m.producePDF), optionLabel("PDF briefing", i == m.cursor)))
+		case "zip":
+			sb.WriteString(fmt.Sprintf("  %s%s  %s\n", cursor, toggleStr(m.zipOutput), optionLabel("ZIP package (bundle all outputs)", i == m.cursor)))
+		case "startOffset":
+			editing := m.editingField == "startOffset"
+			sb.WriteString(fmt.Sprintf("  %s     Start offset: %s ms\n", cursor, numFieldStr(m.startOffsetMS, editing, i == m.cursor)))
+		case "endTrim":
+			editing := m.editingField == "endTrim"
+			sb.WriteString(fmt.Sprintf("  %s     End trim: %s ms\n", cursor, numFieldStr(m.endTrimMS, editing, i == m.cursor)))
 		case "transcode":
 			sb.WriteString(fmt.Sprintf("  %s%s  %s\n", cursor, toggleStr(m.transcode), optionLabel("Transcode video", i == m.cursor)))
 		case "codec":
@@ -225,13 +296,45 @@ func (m optionsModel) view() string {
 	return sb.String()
 }
 
+// getEditingValue returns the current value of the field being edited.
+func (m optionsModel) getEditingValue() string {
+	switch m.editingField {
+	case "startOffset":
+		return m.startOffsetMS
+	case "endTrim":
+		return m.endTrimMS
+	default:
+		return "0"
+	}
+}
+
+// setEditingValue sets the value of the field being edited.
+func (m *optionsModel) setEditingValue(val string) {
+	switch m.editingField {
+	case "startOffset":
+		m.startOffsetMS = val
+	case "endTrim":
+		m.endTrimMS = val
+	}
+}
+
+// parseIntField safely parses a string field as int, returning 0 on error.
+func parseIntField(s string) int {
+	v, _ := strconv.Atoi(s)
+	return v
+}
+
 // toPipelineOpts converts the options model into pipeline.Options fields.
 func (m optionsModel) toPipelineOpts() pipeline.Options {
 	return pipeline.Options{
 		SkipGPX:          !m.produceGPX,
 		SkipCharts:       !m.produceCharts,
 		SkipMarkdown:     !m.produceMarkdown,
+		SkipMetadata:     !m.produceMetadata,
 		SkipPDF:          !m.producePDF,
+		ZipOutput:        m.zipOutput,
+		StartOffsetMS:    parseIntField(m.startOffsetMS),
+		EndTrimMS:        parseIntField(m.endTrimMS),
 		Transcode:        m.transcode,
 		TranscodeCodec:   codecChoices[m.transcodeCodec],
 		TranscodeBitrate: bitrateChoices[m.transcodeBitrate],
@@ -253,6 +356,16 @@ func optionLabel(label string, focused bool) string {
 		return optionsLabelFocusedStyle.Render(label)
 	}
 	return optionsLabelStyle.Render(label)
+}
+
+func numFieldStr(val string, editing bool, focused bool) string {
+	if editing {
+		return optionsCursorStyle.Render(val + "_")
+	}
+	if focused {
+		return optionsCursorStyle.Render(val + "  (enter to edit)")
+	}
+	return optionsLabelStyle.Render(val)
 }
 
 func cycleStr(choices []string, idx int, focused bool) string {

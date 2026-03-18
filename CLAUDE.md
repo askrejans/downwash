@@ -6,8 +6,8 @@ workflow for Claude Code and human contributors.
 ## Project overview
 
 `downwash` is a Go CLI tool that processes DJI drone MP4 videos and produces
-post-flight analysis packages: GPX tracks, PNG charts, Markdown reports, and
-PDF briefings.
+post-flight analysis packages: GPX tracks, PNG charts (altitude + speed),
+Markdown reports, metadata JSON exports, and PDF briefings.
 
 Module: `github.com/askrejans/downwash`
 Go version: 1.21+
@@ -21,8 +21,8 @@ Entry point: `cmd/downwash/main.go`
 | `internal/ffmpeg` | `ffmpeg` transcode, `ffprobe` codec detection, typed `TranscodeError` |
 | `internal/geo` | Shared geodesy: `HaversineM`, coordinate rounding, `MaxGPSJitterM` constant |
 | `internal/gpx` | GPX 1.1 XML writer, ~1 Hz downsampling, jitter filter |
-| `internal/chart` | gonum/plot PNG charts: altitude profile, flight-track map with OSM tile background |
-| `internal/report` | Markdown + gofpdf three-page PDF briefing |
+| `internal/chart` | gonum/plot PNG charts: altitude+speed profile, flight-track map with OSM tile background |
+| `internal/report` | Markdown + gofpdf four-page PDF briefing + metadata JSON export |
 | `internal/pipeline` | Orchestrates all steps for a single video file; progress callback API |
 | `internal/tui` | Bubble Tea interactive terminal UI: file picker, progress view, result display |
 | `cmd/downwash` | cobra CLI: `process`, `batch`, `version` sub-commands; TUI launcher |
@@ -46,11 +46,18 @@ type Frame struct {
 }
 
 // telemetry.FlightStats — aggregate flight statistics
+// Includes: Duration, MaxAltASL/MinAltASL, MaxAltAGL/MinAltAGL,
+// MaxSpeedMS, AvgSpeedMS, DistanceM, FrameCount, GPSPointCount,
+// StartTime/EndTime, StartLat/StartLon, EndLat/EndLon,
+// AltGainM, AltLossM, MaxClimbMS, MaxDescentMS,
+// MaxRoll, MaxPitch, MaxYawRate, MaxHomeDist,
+// ISO, ShutterSpeed, FNumber, ColorTemp
 type FlightStats struct { ... }
 
 // ffmpeg.Options — transcode configuration
 type Options struct {
     InputPath, OutputPath, Codec, Bitrate, Preset string
+    StartOffsetMS, EndTrimMS, DurationMS int
     Logger *slog.Logger
 }
 
@@ -58,7 +65,7 @@ type Options struct {
 type Options struct { ... }
 
 // pipeline.StepName / StepStatus / ProgressFunc — progress callback API
-type StepName string   // e.g. StepTelemetry, StepCodec, StepGPX, …
+type StepName string   // e.g. StepTelemetry, StepCodec, StepGPX, StepMetadata, StepZip, …
 type StepStatus string // StepRunning, StepDone, StepFailed, StepSkipped
 type ProgressFunc func(step StepName, status StepStatus, msg string)
 
@@ -137,6 +144,20 @@ Two filters clean up raw DJI GPS telemetry in `ComputeStats` and the GPX writer:
    speeds (e.g. 2 m error in 33 ms = 60 m/s). The 50 m/s threshold covers
    even the fastest DJI FPV drones (~39 m/s in manual mode).
 
+## Time trimming
+
+`StartOffsetMS` and `EndTrimMS` in `pipeline.Options` let the user trim frames
+from the beginning and end of the analysed timeframe (in milliseconds). Both
+telemetry frames and the transcoded video are trimmed in sync:
+
+- **Telemetry**: `trimFrames()` in `pipeline.go` filters frames by SampleTime
+  before computing stats, GPX, charts, and reports.
+- **Video**: `ffmpeg.Transcode()` receives the same offsets and passes `-ss`
+  (seek) and `-t` (duration) flags to ffmpeg so the output video matches the
+  trimmed telemetry window exactly.
+- **CLI**: `--start-offset <ms>` and `--end-trim <ms>` flags.
+- **TUI**: numeric input fields in the options menu under "Time trimming".
+
 ## TUI architecture
 
 The interactive terminal UI lives in `internal/tui` and uses
@@ -151,7 +172,8 @@ The interactive terminal UI lives in `internal/tui` and uses
 - **Batch mode**: pressing `s` in the file picker selects the current directory.
   The TUI processes all MP4s sequentially, showing `[1/N] filename` progress.
 - **Skip flags**: `pipeline.Options` has `SkipGPX`, `SkipCharts`, `SkipMarkdown`,
-  `SkipPDF` booleans. `FilteredSteps(opts)` returns only the active steps.
+  `SkipMetadata`, `SkipPDF` booleans. `ZipOutput` bundles artefacts into a ZIP.
+  `FilteredSteps(opts)` returns only the active steps.
 - **File picker**: wraps `bubbles/filepicker` filtered to `.MP4`/`.mp4` files.
   Defaults to user home directory. Press `s` to select folder for batch mode.
 - **Colour palette**: cyberpunk theme (neon cyan `#00FFDD`, violet `#BF40FF`,
@@ -190,8 +212,9 @@ Dark aviation theme (all files use the same palette defined in `chart/altitude.g
 |---|---|---|
 | `colBackground` | 18, 18, 28 | Plot background |
 | `colGrid` | 50, 50, 70 | Grid lines |
-| `colASL` | 77, 166, 255 | ASL altitude line (sky blue) |
-| `colAGL` | 50, 220, 130 | AGL altitude line (green) |
+| `colASL` | 99, 155, 255 | ASL altitude line (soft steel blue) |
+| `colAGL` | 56, 203, 137 | AGL altitude line (muted emerald) |
+| `colSpeed` | 255, 180, 50 | Speed line (warm amber) |
 | `colTrack` | 255, 210, 50 | GPS track line (amber) |
 | `colStart` | 50, 220, 130 | Start marker |
 | `colEnd` | 255, 80, 80 | End marker (red) |

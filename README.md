@@ -17,13 +17,15 @@
 
 - **Telemetry extraction** — reads the DJI djmd protobuf stream via [exiftool](https://exiftool.org), parsing GPS, altitude, attitude, and camera settings at ~30 Hz
 - **GPX 1.1 track file** — compatible with Google Earth, Garmin Basecamp, and any GPX-capable mapping tool
-- **Altitude profile chart** — dual-panel PNG: altitude ASL and AGL over time, dark aviation theme
+- **Altitude & speed chart** — three-panel PNG: altitude ASL, AGL, and ground speed over time, dark aviation theme
 - **Flight track map** — top-down GPS path over dark OSM map tiles ([CartoDB dark_matter](https://carto.com/)), with automatic fallback to plain dark chart if tiles are unavailable
 - **Markdown report** — structured summary of flight statistics, GPS, camera settings
-- **PDF post-flight briefing** — three-page A4 landscape PDF with cover stats, altitude profile, and detailed telemetry table
+- **PDF post-flight briefing** — four-page A4 landscape PDF with cover stats, altitude/speed profiles, flight dynamics, and detailed telemetry tables
+- **Metadata JSON export** — machine-readable JSON file with all flight statistics and per-frame telemetry for integration with other tools
+- **ZIP packaging** — optionally bundle all output artefacts into a single ZIP file (`--zip` flag or TUI toggle)
 - **Video transcode** — optional re-encode to H.264 (AVC) or H.265 (HEVC) at a target bitrate via ffmpeg
 - **Interactive TUI** — terminal interface with file picker, options menu (toggle outputs, configure transcoding), real-time pipeline progress, and styled output (powered by [Bubble Tea](https://github.com/charmbracelet/bubbletea))
-- **Configurable outputs** — choose which artefacts to produce: GPX, charts, markdown, PDF — all toggleable from the TUI options menu or via skip flags
+- **Configurable outputs** — choose which artefacts to produce: GPX, charts, markdown, metadata JSON, PDF — all toggleable from the TUI options menu or via skip flags
 - **Batch processing** — process an entire SD-card directory in one command; select a folder directly in the TUI file picker with `s`
 - **Scriptable** — `--no-tui` flag disables the interactive interface for CI/CD pipelines and shell scripting
 - **Cross-platform** — static binaries for macOS (arm64/amd64), Linux (amd64), Windows (amd64/arm64)
@@ -139,10 +141,10 @@ downwash batch --recursive /Volumes/DJI
 | `--bitrate` | `15M` | Target video bitrate (e.g. `15M`, `8M`) |
 | `--preset` | `medium` | ffmpeg encode preset (`ultrafast` … `veryslow`) |
 | `--skip-telemetry` | false | Skip exiftool extraction (no GPX/charts/reports) |
-| `--skip-gpx` | false | Skip GPX track generation |
-| `--skip-charts` | false | Skip altitude and track map charts |
-| `--skip-markdown` | false | Skip Markdown report generation |
-| `--skip-pdf` | false | Skip PDF briefing generation |
+| `--skip-metadata` | false | Skip metadata JSON export |
+| `--zip` | false | Bundle all output artefacts into a single ZIP file |
+| `--start-offset` | `0` | Trim the beginning of the video by N milliseconds |
+| `--end-trim` | `0` | Trim the end of the video by N milliseconds |
 | `--no-tui` | false | Disable interactive TUI (plain text output) |
 | `-v`, `--verbose` | false | Debug logging (shows ffmpeg/exiftool output) |
 | `-r`, `--recursive` | false | Descend into sub-directories (batch mode) |
@@ -152,10 +154,12 @@ downwash batch --recursive /Volumes/DJI
 | Artefact | Suffix | Description |
 |---|---|---|
 | GPX track | `_track.gpx` | GPS Exchange Format 1.1 |
-| Altitude chart | `_altitude.png` | ASL + AGL panels, dark theme |
+| Altitude & speed chart | `_altitude.png` | ASL + AGL + speed panels, dark theme |
 | Track map | `_track.png` | Top-down flight path PNG |
 | Markdown report | `_report.md` | Human-readable flight summary |
-| PDF briefing | `_briefing.pdf` | 3-page aviation-themed PDF |
+| Metadata JSON | `_metadata.json` | Machine-readable telemetry export |
+| PDF briefing | `_briefing.pdf` | 4-page aviation-themed PDF |
+| ZIP package | `_package.zip` | Only with `--zip` |
 | Transcoded video | `_h264.mp4` / `_h265.mp4` | Only with `--transcode` |
 
 ### `downwash version`
@@ -232,9 +236,9 @@ make sample
 
 ## Sample output
 
-Pre-generated samples using synthetic flight data (no real location) are in [`samples/`](samples/).
+Pre-generated samples using synthetic figure-8 flight data are in [`samples/`](samples/).
 
-### Altitude profile
+### Altitude & speed profile
 
 ![Altitude profile](samples/sample_flight_altitude.png)
 
@@ -246,10 +250,11 @@ Pre-generated samples using synthetic flight data (no real location) are in [`sa
 
 | Artefact | File |
 |:---|:---|
-| Altitude chart | [`sample_flight_altitude.png`](samples/sample_flight_altitude.png) |
+| Altitude & speed chart | [`sample_flight_altitude.png`](samples/sample_flight_altitude.png) |
 | Flight track map | [`sample_flight_track.png`](samples/sample_flight_track.png) |
 | GPX track | [`sample_flight_track.gpx`](samples/sample_flight_track.gpx) |
 | Markdown report | [`sample_flight_report.md`](samples/sample_flight_report.md) |
+| Metadata JSON | [`sample_flight_metadata.json`](samples/sample_flight_metadata.json) |
 | PDF briefing | [`sample_flight_briefing.pdf`](samples/sample_flight_briefing.pdf) |
 
 ---

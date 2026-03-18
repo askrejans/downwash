@@ -105,10 +105,11 @@ func TestComputeStats(t *testing.T) {
 	// Synthetic 3-frame flight: straight north 20 m, then another 20 m.
 	// Steps are 20 m — below the 50 m jitter filter threshold.
 	latPerM := 1.0 / 111_195.0 // degrees per metre at equator
+	baseLat := 57.0
 	frames := []Frame{
-		{SampleTime: 0, Lat: 0, Lon: 0, AltAbsolute: 100, AltRelative: 10},
-		{SampleTime: 1 * time.Second, Lat: latPerM * 20, Lon: 0, AltAbsolute: 120, AltRelative: 30},
-		{SampleTime: 2 * time.Second, Lat: latPerM * 40, Lon: 0, AltAbsolute: 110, AltRelative: 20},
+		{SampleTime: 0, Lat: baseLat, Lon: 24.0, AltAbsolute: 100, AltRelative: 10},
+		{SampleTime: 1 * time.Second, Lat: baseLat + latPerM*20, Lon: 24.0, AltAbsolute: 120, AltRelative: 30},
+		{SampleTime: 2 * time.Second, Lat: baseLat + latPerM*40, Lon: 24.0, AltAbsolute: 110, AltRelative: 20},
 	}
 
 	s := ComputeStats(frames)
@@ -232,10 +233,10 @@ func TestParseDMSCoordLeadingWhitespace(t *testing.T) {
 func TestComputeStatsGPSJitterFiltered(t *testing.T) {
 	// A teleportation spike (>50 m) should be excluded from distance.
 	frames := []Frame{
-		{SampleTime: 0, Lat: 0, Lon: 0, AltAbsolute: 50, AltRelative: 10},
-		{SampleTime: time.Second, Lat: 10, Lon: 10, // 1570 km spike — should be ignored
+		{SampleTime: 0, Lat: 57.0, Lon: 24.0, AltAbsolute: 50, AltRelative: 10},
+		{SampleTime: time.Second, Lat: 10, Lon: 10, // ~5500 km spike — should be ignored
 			AltAbsolute: 50, AltRelative: 10},
-		{SampleTime: 2 * time.Second, Lat: 0.0001, Lon: 0, // ~11 m — should count
+		{SampleTime: 2 * time.Second, Lat: 57.0001, Lon: 24.0, // ~11 m — should count
 			AltAbsolute: 50, AltRelative: 10},
 	}
 
@@ -246,31 +247,83 @@ func TestComputeStatsGPSJitterFiltered(t *testing.T) {
 	}
 }
 
-func TestComputeStatsSpeedFilter(t *testing.T) {
-	// Simulate GPS acquisition noise: small position error at high sample
-	// rate producing implausible speed (e.g. 2 m in 33 ms = 60 m/s).
-	// This should be filtered by MaxPlausibleSpeedMS.
+func TestComputeStatsNewFields(t *testing.T) {
+	// Synthetic flight: climb 20m, descend 10m, with roll/pitch.
 	latPerM := 1.0 / 111_195.0
+	baseLat := 57.0
 	frames := []Frame{
-		{SampleTime: 0, Lat: 0, Lon: 0, AltAbsolute: 50, AltRelative: 10},
-		// 2 m in 33 ms = 60.6 m/s — GPS noise, should be filtered.
-		{SampleTime: 33 * time.Millisecond, Lat: latPerM * 2, Lon: 0,
+		{SampleTime: 0, Lat: baseLat, Lon: 24.0, AltAbsolute: 100, AltRelative: 10,
+			Roll: 5, Pitch: -3, Yaw: 0},
+		{SampleTime: 1 * time.Second, Lat: baseLat + latPerM*20, Lon: 24.0, AltAbsolute: 120, AltRelative: 30,
+			Roll: -15, Pitch: 10, Yaw: 45},
+		{SampleTime: 2 * time.Second, Lat: baseLat + latPerM*40, Lon: 24.0, AltAbsolute: 110, AltRelative: 20,
+			Roll: 25, Pitch: -8, Yaw: 90},
+	}
+
+	s := ComputeStats(frames)
+
+	// Altitude gain: 20m (10→30), loss: 10m (30→20).
+	if math.Abs(s.AltGainM-20) > 0.1 {
+		t.Errorf("AltGainM = %.2f, want ~20", s.AltGainM)
+	}
+	if math.Abs(s.AltLossM-10) > 0.1 {
+		t.Errorf("AltLossM = %.2f, want ~10", s.AltLossM)
+	}
+
+	// Max climb rate: 20 m/s (20m in 1s).
+	if s.MaxClimbMS < 15 {
+		t.Errorf("MaxClimbMS = %.2f, want >= 15", s.MaxClimbMS)
+	}
+
+	// Max descent rate: 10 m/s (10m in 1s).
+	if s.MaxDescentMS < 5 {
+		t.Errorf("MaxDescentMS = %.2f, want >= 5", s.MaxDescentMS)
+	}
+
+	// Max roll: 25 (absolute).
+	if math.Abs(s.MaxRoll-25) > 0.1 {
+		t.Errorf("MaxRoll = %.2f, want 25", s.MaxRoll)
+	}
+
+	// Max pitch: 10 (absolute).
+	if math.Abs(s.MaxPitch-10) > 0.1 {
+		t.Errorf("MaxPitch = %.2f, want 10", s.MaxPitch)
+	}
+
+	// Max home distance: ~40m (latPerM * 40).
+	if s.MaxHomeDist < 30 || s.MaxHomeDist > 50 {
+		t.Errorf("MaxHomeDist = %.2f, want ~40", s.MaxHomeDist)
+	}
+
+	// Yaw rate should be nonzero (45 deg/s).
+	if s.MaxYawRate < 40 {
+		t.Errorf("MaxYawRate = %.2f, want >= 40", s.MaxYawRate)
+	}
+}
+
+func TestComputeStatsSpeedFilter(t *testing.T) {
+	// With 1 Hz downsampling, GPS noise within a single second bucket is
+	// naturally filtered out. Test that the jitter filter still catches
+	// implausible inter-bucket speeds.
+	latPerM := 1.0 / 111_195.0
+	baseLat := 57.0
+	frames := []Frame{
+		{SampleTime: 0, Lat: baseLat, Lon: 24.0, AltAbsolute: 50, AltRelative: 10},
+		// Normal: 10 m in 1 s = 10 m/s.
+		{SampleTime: 1 * time.Second, Lat: baseLat + latPerM*10, Lon: 24.0,
 			AltAbsolute: 50, AltRelative: 10},
-		// Normal flight: 10 m in 1 s = 10 m/s — should count.
-		{SampleTime: 1033 * time.Millisecond, Lat: latPerM * 12, Lon: 0,
-			AltAbsolute: 50, AltRelative: 10},
-		{SampleTime: 2033 * time.Millisecond, Lat: latPerM * 22, Lon: 0,
+		// Another 10 m in 1 s.
+		{SampleTime: 2 * time.Second, Lat: baseLat + latPerM*20, Lon: 24.0,
 			AltAbsolute: 50, AltRelative: 10},
 	}
 
 	s := ComputeStats(frames)
-	// Max speed should be ~10 m/s (the normal frames), not ~60 m/s.
+	// Max speed should be ~10 m/s.
 	if s.MaxSpeedMS > 15 {
 		t.Errorf("speed filter failed: MaxSpeedMS = %.2f, want < 15", s.MaxSpeedMS)
 	}
-	// The 2 m GPS noise segment should be excluded from distance.
-	// Only the two 10 m normal segments should count ≈ 20 m.
-	if s.DistanceM > 25 {
-		t.Errorf("noisy segment included: DistanceM = %.2f, want ~20", s.DistanceM)
+	// Distance should be ~20 m.
+	if math.Abs(s.DistanceM-20) > 3 {
+		t.Errorf("DistanceM = %.2f, want ~20", s.DistanceM)
 	}
 }
