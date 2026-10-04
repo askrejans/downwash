@@ -163,13 +163,13 @@ func TestDocumentedDJIProtocolLayouts(t *testing.T) {
 }
 
 func TestSRTLegacyAndMalformedTimes(t *testing.T) {
-	for _, text := range []string{"GPS(120.5,57.0,72.5) BAROMETER:12.5", "GPS(57.0,120.5,72.5M) BAROMETER(12.5)"} {
+	for _, text := range []string{"GPS(120.5,57.0,72.5) BAROMETER:12.5", "GPS(120.5,57.0,72.5M) BAROMETER(12.5)"} {
 		frames, err := ParseSRT(strings.NewReader("1\n00:00:00,000 --> 00:00:01,000\n" + text))
 		if err != nil || frames[0].Lat != 57 || frames[0].Lon != 120.5 || frames[0].AltRelative != 12.5 {
 			t.Fatalf("frames=%+v error=%v", frames, err)
 		}
 	}
-	for _, text := range []string{"00:00:00,000 --> 00:00:01,000\nGPS(57,24,70)", "00:60:00,000 --> 00:00:01,000\n[latitude: 57] [longitude: 24]", "99999999999999999999999:00:00,000 --> 00:00:01,000\n[latitude: 57] [longitude: 24]"} {
+	for _, text := range []string{"00:00:00,000 --> 00:00:01,000\nGPS(200,95,70)", "00:60:00,000 --> 00:00:01,000\n[latitude: 57] [longitude: 24]", "99999999999999999999999:00:00,000 --> 00:00:01,000\n[latitude: 57] [longitude: 24]"} {
 		if _, err := ParseSRT(strings.NewReader(text)); err == nil {
 			t.Fatalf("accepted invalid source %q", text)
 		}

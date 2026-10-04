@@ -6,6 +6,7 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -58,7 +59,17 @@ type Response struct {
 	Artifacts map[string]string `json:"artifacts"`
 	Warnings  []string          `json:"warnings"`
 	Available map[string]bool   `json:"available"`
+	Video     *VideoInfo        `json:"video,omitempty"`
 	Error     string            `json:"error,omitempty"`
+}
+
+// VideoInfo contains movie measurements independent of flight telemetry.
+type VideoInfo struct {
+	DurationS float64 `json:"duration_s"`
+	Codec     string  `json:"codec"`
+	Width     int     `json:"width_px"`
+	Height    int     `json:"height_px"`
+	FrameRate float64 `json:"frame_rate_fps"`
 }
 
 type analysis struct {
@@ -72,6 +83,14 @@ type analysis struct {
 // It performs no output writes or network requests.
 func Analyze(ctx context.Context, inputPath string) (Response, error) {
 	a, err := readAnalysis(ctx, Request{InputPath: inputPath})
+	if errors.Is(err, telemetry.ErrNoTelemetry) {
+		a.response.Format = "video"
+		a.response.Frames = json.RawMessage(`[]`)
+		a.response.Stats, _ = json.Marshal(map[string]any{"duration_s": a.response.Video.DurationS, "codec": a.response.Video.Codec, "frame_count": 0, "gps_point_count": 0})
+		a.response.Available = map[string]bool{"gps": false, "alt_asl": false, "alt_relative": false, "attitude": false, "gimbal": false, "camera": false}
+		a.response.Warnings = append(a.response.Warnings, "This video contains no supported embedded flight telemetry. Import the original recording from the SD card or its matching SRT file for flight data.")
+		return a.response, nil
+	}
 	return a.response, err
 }
 
@@ -208,6 +227,12 @@ func readAnalysis(ctx context.Context, request Request) (analysis, error) {
 		var info telemetry.MP4Info
 		a.frames, info, err = telemetry.ExtractMP4(ctx, request.InputPath)
 		a.response.Format, a.response.Protocol, a.codec = "dji_djmd", info.Protocol, info.Codec
+		if info.Protocol == "dji_text" {
+			a.response.Format = "dji_text"
+		}
+		if info.Codec != "" {
+			a.response.Video = &VideoInfo{info.DurationS, info.Codec, info.Width, info.Height, info.FrameRate}
+		}
 		a.response.Warnings = append(a.response.Warnings, info.Warnings...)
 	case ".srt":
 		var f *os.File

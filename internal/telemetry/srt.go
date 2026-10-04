@@ -13,16 +13,18 @@ import (
 )
 
 var (
-	srtTimeRE  = regexp.MustCompile(`^(\d{2,}):(\d{2}):(\d{2})[,.](\d{3})\s*-->`)
-	srtKeyRE   = regexp.MustCompile(`(?i)\b(latitude|longitude|longtitude|rel_alt|abs_alt|drone_roll|drone_pitch|drone_yaw|gb_pitch|gb_yaw|gimbal_pitch|gimbal_yaw|iso|fnum|ct|shutter)\s*:\s*([^\]\s,]+)`)
-	srtExtraRE = regexp.MustCompile(`(?i)\b([a-z][a-z0-9_]*)\s*:\s*([^\]\s,<>]+)`)
-	srtGPSRE   = regexp.MustCompile(`(?i)\bGPS\s*\(\s*([-+\d.]+)\s*,\s*([-+\d.]+)\s*,\s*([-+\d.]+)[A-Za-z]*\s*\)`)
-	srtBaroRE  = regexp.MustCompile(`(?i)\bBAROMETER\s*[:(]\s*([-+\d.]+)`)
+	srtTimeRE   = regexp.MustCompile(`^(\d{2,}):(\d{2}):(\d{2})[,.](\d{3})\s*-->`)
+	srtKeyRE    = regexp.MustCompile(`(?i)\b(latitude|longitude|longtitude|rel_alt|abs_alt|drone_roll|drone_pitch|drone_yaw|gb_pitch|gb_yaw|gimbal_pitch|gimbal_yaw|iso|fnum|ct|shutter)\s*:\s*([^\]\s,]+)`)
+	srtExtraRE  = regexp.MustCompile(`(?i)\b([a-z][a-z0-9_]*)\s*:\s*([^\]\s,<>]+)`)
+	srtGPSRE    = regexp.MustCompile(`(?i)\bGPS\s*\(\s*([-+\d.]+)\s*,\s*([-+\d.]+)\s*,\s*([-+\d.]+)[A-Za-z]*\s*\)`)
+	srtBaroRE   = regexp.MustCompile(`(?i)\bBAROMETER\s*[:(]\s*([-+\d.]+)`)
+	srtLegacyRE = regexp.MustCompile(`(?i)(?:^|[,\s])(F/|SS|ISO|EV|H\.S|V\.S|H|D)\s*([-+]?\d+(?:\.\d+)?(?:/\d+)?)`)
+	srtAnglesRE = regexp.MustCompile(`(?i)\b([FG])\.PRY\s*\(\s*([-+\d.]+)[°\s]*,\s*([-+\d.]+)[°\s]*,\s*([-+\d.]+)[°\s]*\)`)
 )
 
 // ParseSRT reads DJI bracketed telemetry subtitles, including DJI's documented
-// "longtitude" spelling. Legacy GPS tuples are supported only when coordinate
-// bounds resolve their order unambiguously. Ordinary subtitles are rejected.
+// "longtitude" spelling and documented longitude/latitude legacy GPS tuples.
+// Ordinary subtitles are rejected.
 func ParseSRT(r io.Reader) ([]Frame, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 4096), 1<<20)
@@ -38,6 +40,43 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 		values := make(map[string]string)
 		for _, match := range srtKeyRE.FindAllStringSubmatch(text.String(), -1) {
 			values[strings.ToLower(match[1])] = match[2]
+		}
+		additional := map[string]any{}
+		for _, match := range srtLegacyRE.FindAllStringSubmatch(text.String(), -1) {
+			key, value := strings.ToUpper(match[1]), match[2]
+			switch key {
+			case "F/":
+				values["fnum"] = value
+			case "SS":
+				if parseFloat(value) > 0 {
+					values["shutter"] = "1/" + value
+				}
+			case "ISO":
+				values["iso"] = value
+			case "H":
+				values["rel_alt"] = value
+			case "D":
+				additional["distance_home_m"] = parseFloat(value)
+			case "H.S":
+				additional["horizontal_speed_ms"] = parseFloat(value)
+			case "V.S":
+				additional["vertical_speed_ms"] = parseFloat(value)
+			case "EV":
+				parts := strings.Split(value, "/")
+				exposure := parseFloat(parts[0])
+				if len(parts) == 2 && parseFloat(parts[1]) != 0 {
+					exposure /= parseFloat(parts[1])
+				}
+				additional["exposure_compensation_ev"] = exposure
+			}
+		}
+		for _, match := range srtAnglesRE.FindAllStringSubmatch(text.String(), -1) {
+			if strings.ToUpper(match[1]) == "F" {
+				values["drone_pitch"], values["drone_roll"], values["drone_yaw"] = match[2], match[3], match[4]
+			} else {
+				values["gimbal_pitch"], values["gimbal_yaw"] = match[2], match[4]
+				additional["gimbal_roll_deg"] = parseFloat(match[3])
+			}
 		}
 		lonText := values["longitude"]
 		if lonText == "" {
@@ -58,13 +97,10 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 				if firstErr != nil || secondErr != nil {
 					return
 				}
-				switch {
-				case math.Abs(first) <= 90 && math.Abs(second) > 90 && math.Abs(second) <= 180:
-					lat, lon = first, second
-				case math.Abs(second) <= 90 && math.Abs(first) > 90 && math.Abs(first) <= 180:
-					lat, lon = second, first
-				default:
-					subtitleErr = fmt.Errorf("telemetry: ambiguous or invalid legacy GPS coordinate order; use labeled latitude/longitude subtitles")
+				// DJI documents the tuple as longitude, latitude, altitude.
+				lon, lat = first, second
+				if math.Abs(lat) > 90 || math.Abs(lon) > 180 {
+					subtitleErr = fmt.Errorf("telemetry: invalid legacy GPS coordinates")
 					return
 				}
 				values["abs_alt"] = match[3]
@@ -82,6 +118,7 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 			GimbalPitch: parseFloat(values["gb_pitch"]), GimbalYaw: parseFloat(values["gb_yaw"]),
 			ISO: int(parseFloat(values["iso"])), ShutterSpeed: values["shutter"],
 			FNumber: parseFloat(values["fnum"]), ColorTemperature: int(parseFloat(values["ct"])),
+			Additional: additional,
 		}
 		hasNumber := func(keys ...string) bool {
 			for _, key := range keys {

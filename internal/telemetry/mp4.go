@@ -1,9 +1,9 @@
 package telemetry
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,10 +13,17 @@ import (
 
 // MP4Info describes the source of native timed telemetry extraction.
 type MP4Info struct {
-	Protocol string
-	Codec    string
-	Warnings []string
+	Protocol      string
+	Codec         string
+	DurationS     float64
+	Width, Height int
+	FrameRate     float64
+	Warnings      []string
 }
+
+// ErrNoTelemetry distinguishes a valid video without supported telemetry from
+// malformed media or an unsupported DJI binary protocol.
+var ErrNoTelemetry = errors.New("telemetry: this video has no embedded DJI telemetry track; use the original recording from the SD card or its matching SRT file")
 
 type mp4Box struct {
 	kind string
@@ -119,7 +126,8 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 		return nil, MP4Info{}, err
 	}
 	var info MP4Info
-	var telemetryTrack []byte
+	var telemetryTracks [][]byte
+	var textTracks []mp4Box
 	for _, track := range tracks {
 		if track.kind != "trak" {
 			continue
@@ -128,20 +136,48 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 		if err != nil || len(stsd) < 16 {
 			continue
 		}
-		if bytes.Contains(stsd, []byte("djmd")) {
-			telemetryTrack = track.data
+		descriptions, err := mp4Boxes(stsd[8:])
+		if err != nil {
+			return nil, info, fmt.Errorf("telemetry: invalid sample descriptions: %w", err)
 		}
-		switch string(stsd[12:16]) {
-		case "avc1", "avc3":
-			info.Codec = "h264"
-		case "hvc1", "hev1":
-			info.Codec = "h265"
+		if uint32(len(descriptions)) != binary.BigEndian.Uint32(stsd[4:]) {
+			return nil, info, fmt.Errorf("telemetry: sample description count mismatch")
+		}
+		for _, description := range descriptions {
+			switch description.kind {
+			case "djmd":
+				telemetryTracks = append(telemetryTracks, track.data)
+			case "text", "tx3g":
+				textTracks = append(textTracks, mp4Box{description.kind, track.data})
+			case "avc1", "avc3":
+				info.Codec = "h264"
+			case "hvc1", "hev1":
+				info.Codec = "h265"
+			}
+			if description.kind == "avc1" || description.kind == "avc3" || description.kind == "hvc1" || description.kind == "hev1" {
+				if err := readVideoInfo(track.data, description.data, &info); err != nil {
+					return nil, info, err
+				}
+			}
 		}
 	}
-	if telemetryTrack == nil {
-		return nil, info, fmt.Errorf("telemetry: no embedded DJI djmd track; import the matching SRT subtitle file")
+	if len(telemetryTracks) == 0 {
+		for _, track := range textTracks {
+			frames, _, err := readDJITrack(ctx, f, stat.Size(), track.data, track.kind)
+			if err != nil {
+				return nil, info, err
+			}
+			if len(frames) > 0 {
+				info.Protocol = "dji_text"
+				return frames, info, nil
+			}
+		}
+		if info.Codec != "" && info.DurationS > 0 {
+			return nil, info, ErrNoTelemetry
+		}
+		return nil, info, fmt.Errorf("telemetry: no supported video or DJI telemetry track")
 	}
-	frames, protocol, err := readDJITrack(ctx, f, stat.Size(), telemetryTrack)
+	frames, protocol, err := readDJITrack(ctx, f, stat.Size(), telemetryTracks[0], "djmd")
 	info.Protocol = protocol
 	if layout, ok := djiLayouts[protocol]; ok {
 		var absent []string
@@ -164,7 +200,59 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 type sampleChunk struct{ first, count uint32 }
 type sampleTiming struct{ count, delta uint32 }
 
-func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []byte) ([]Frame, string, error) {
+func readVideoInfo(track, description []byte, info *MP4Info) error {
+	mdhd, err := childBox(track, "mdia", "mdhd")
+	if err != nil {
+		return err
+	}
+	offset, durationWidth := 12, 4
+	if len(mdhd) > 0 && mdhd[0] == 1 {
+		offset, durationWidth = 20, 8
+	}
+	if len(mdhd) < offset+4+durationWidth || mdhd[0] > 1 {
+		return fmt.Errorf("telemetry: truncated or unsupported video media header")
+	}
+	scale := binary.BigEndian.Uint32(mdhd[offset:])
+	if scale == 0 {
+		return fmt.Errorf("telemetry: invalid video timescale")
+	}
+	duration := uint64(binary.BigEndian.Uint32(mdhd[offset+4:]))
+	if durationWidth == 8 {
+		duration = binary.BigEndian.Uint64(mdhd[offset+4:])
+	}
+	if duration == uint64(^uint32(0)) && durationWidth == 4 || duration == ^uint64(0) {
+		return fmt.Errorf("telemetry: unknown video duration")
+	}
+	info.DurationS = float64(duration) / float64(scale)
+	if len(description) >= 28 {
+		info.Width, info.Height = int(binary.BigEndian.Uint16(description[24:])), int(binary.BigEndian.Uint16(description[26:]))
+	}
+	stts, err := childBox(track, "mdia", "minf", "stbl", "stts")
+	if err != nil || len(stts) < 8 {
+		return fmt.Errorf("telemetry: missing video sample timing")
+	}
+	count := binary.BigEndian.Uint32(stts[4:])
+	if uint64(count)*8 > uint64(len(stts)-8) {
+		return fmt.Errorf("telemetry: truncated video sample timing")
+	}
+	var samples, ticks uint64
+	for i := uint32(0); i < count; i++ {
+		p := stts[8+int(i)*8:]
+		n, d := uint64(binary.BigEndian.Uint32(p)), uint64(binary.BigEndian.Uint32(p[4:]))
+		if n*d > ^uint64(0)-ticks {
+			return fmt.Errorf("telemetry: video sample timing overflow")
+		}
+		samples += n
+		ticks += n * d
+	}
+	if ticks > 0 {
+		info.FrameRate = float64(samples) * float64(scale) / float64(ticks)
+	}
+	return nil
+}
+
+func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []byte, kind string) ([]Frame, string, error) {
+	text := kind != "djmd"
 	mdhd, err := childBox(track, "mdia", "mdhd")
 	if err != nil {
 		return nil, "", err
@@ -234,6 +322,9 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	for i := range times {
 		p := timesData[8+i*8:]
 		times[i] = sampleTiming{binary.BigEndian.Uint32(p), binary.BigEndian.Uint32(p[4:])}
+		if times[i].count == 0 {
+			return nil, "", fmt.Errorf("telemetry: empty sample timing entry")
+		}
 		timingSamples += uint64(times[i].count)
 	}
 	if timingSamples != uint64(count) {
@@ -269,28 +360,58 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 			if _, err := r.ReadAt(data, int64(offset)); err != nil {
 				return nil, protocol, fmt.Errorf("telemetry: read DJI sample: %w", err)
 			}
-			frame, nextProtocol, hasFrame, err := decodeDJI(data, protocol)
-			if err != nil {
-				return nil, protocol, fmt.Errorf("telemetry: DJI sample %d: %w", sample, err)
-			}
-			protocol = nextProtocol
-			additional, err := djiAdditional(data, protocol)
-			if err != nil {
-				return nil, protocol, fmt.Errorf("telemetry: additional fields: %w", err)
-			}
-			for _, key := range []string{"model", "serial_number", "frame_width_px", "frame_height_px", "frame_rate_fps"} {
-				if value, ok := additional[key]; ok {
-					headerFields[key] = value
+			var frame Frame
+			var nextProtocol string
+			var hasFrame bool
+			var err error
+			if text {
+				if len(data) < 2 {
+					return nil, protocol, fmt.Errorf("telemetry: truncated timed text sample")
+				}
+				length := int(binary.BigEndian.Uint16(data))
+				var payload []byte
+				if length <= len(data)-2 {
+					payload = data[2 : 2+length]
+				} else if kind == "text" && data[0] >= 32 && data[0] <= 126 {
+					payload = data
+				} else {
+					return nil, protocol, fmt.Errorf("telemetry: invalid timed text length")
+				}
+				parsed, parseErr := ParseSRT(strings.NewReader("1\n00:00:00,000 --> 00:00:01,000\n" + string(payload)))
+				if parseErr != nil && (srtGPSRE.Match(payload) || srtKeyRE.Match(payload)) {
+					return nil, protocol, fmt.Errorf("telemetry: timed DJI subtitle: %w", parseErr)
+				}
+				if parseErr == nil && len(parsed) > 0 {
+					frame, hasFrame, nextProtocol = parsed[0], true, "dji_text"
+				}
+			} else {
+				frame, nextProtocol, hasFrame, err = decodeDJI(data, protocol)
+				if err != nil {
+					return nil, protocol, fmt.Errorf("telemetry: DJI sample %d: %w", sample, err)
+				}
+				protocol = nextProtocol
+				additional, err := djiAdditional(data, protocol)
+				if err != nil {
+					return nil, protocol, fmt.Errorf("telemetry: additional fields: %w", err)
+				}
+				for _, key := range []string{"model", "serial_number", "frame_width_px", "frame_height_px", "frame_rate_fps"} {
+					if value, ok := additional[key]; ok {
+						headerFields[key] = value
+					}
+				}
+				for key, value := range headerFields {
+					additional[key] = value
+				}
+				if len(additional) > 0 {
+					frame.Additional = additional
 				}
 			}
-			for key, value := range headerFields {
-				additional[key] = value
-			}
-			if len(additional) > 0 {
-				frame.Additional = additional
-			}
 			if hasFrame {
-				frame.SampleTime = time.Duration(float64(ticks) / float64(scale) * float64(time.Second))
+				nanoseconds := float64(ticks) / float64(scale) * float64(time.Second)
+				if nanoseconds >= float64(int64(^uint64(0)>>1)) {
+					return nil, protocol, fmt.Errorf("telemetry: sample time exceeds supported duration")
+				}
+				frame.SampleTime = time.Duration(nanoseconds)
 				frames = append(frames, frame)
 			}
 			ticks += uint64(times[timeEntry].delta)
@@ -306,7 +427,7 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	if sample != count {
 		return nil, protocol, fmt.Errorf("telemetry: incomplete DJI chunk table")
 	}
-	if len(frames) == 0 {
+	if len(frames) == 0 && !text {
 		return nil, protocol, fmt.Errorf("telemetry: DJI track contains no telemetry frames")
 	}
 	return frames, protocol, nil

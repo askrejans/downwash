@@ -20,7 +20,8 @@ in the platform's preferred binding mechanism. The core requires no CGO.
 
 ## Source coverage
 
-MP4, MOV and LRF use the ISO BMFF sample tables and DJI `djmd` protobuf stream.
+MP4, MOV and LRF use the ISO BMFF sample tables and DJI `djmd` protobuf stream,
+or recorded DJI telemetry in QuickTime `text`/`tx3g` subtitle tracks.
 The parser reads the movie metadata and telemetry samples by random access;
 it skips encoded video data. Standard and extended atom sizes, `stco` and `co64`
 offsets, variable and fixed sample sizes, and multiple timing/chunk-table entries
@@ -61,10 +62,13 @@ Field names and units follow [DJI's subtitle documentation](https://repair.dji.c
 Different sources may omit fields. Date text without an explicit timezone is not
 converted into an invented GPS UTC timestamp.
 
-Legacy `GPS(a,b,altitude)` tuples are accepted when coordinate bounds establish
-one possible order: one coordinate is outside ±90° but within ±180°. Both
-latitude-first and longitude-first variants and `BAROMETER(...)`/`BAROMETER:value`
-are supported in that case. Both-in-range tuples are rejected as ambiguous.
+Legacy `GPS(longitude,latitude,altitude)` tuples follow [DJI’s documented coordinate order](https://repair.dji.com/help/content?customId=01700007391&lang=en&paperDocType=ARTICLE&re=US&spaceId=17),
+including coordinates where both numbers are within ±90°. The legacy camera
+fields `F/`, `SS`, `ISO`, `EV`, height `H`, distance `D`, horizontal/vertical
+speed `H.S`/`V.S`, and `F.PRY`/`G.PRY` angles are retained. `H` is relative
+height to the home point; GPS tuple altitude is absolute. `BAROMETER(...)`
+and `BAROMETER:value` are also accepted. Legacy embedded-text sample framing
+follows [ExifTool’s QuickTime stream reader](https://github.com/exiftool/exiftool/blob/master/lib/Image/ExifTool/QuickTimeStream.pl). Ordinary subtitles do not become flight telemetry.
 
 Downwash metadata JSON version `1.0` can be reimported and reanalysed. Arbitrary
 flight-log CSV, encrypted DJI Fly/GO TXT/DAT, GoPro GPMF, Autel logs, Remote ID,
@@ -122,7 +126,7 @@ Both bridges return:
 }
 ```
 
-`format` is `dji_djmd`, `dji_srt` or `downwash_json`. `AnalyzeJSON` generates no
+`format` is `dji_djmd`, `dji_text`, `dji_srt`, `downwash_json` or `video`. `AnalyzeJSON` generates no
 artifacts. `ProcessJSON` artifact keys are `gpx`, `csv`, `kml`, `kmz`, `altitude_png`, `track_png`,
 `markdown`, `metadata`, `pdf` and `zip`; each contains the generated file path.
 Disabled or failed outputs have no artifact key. Export failures appear in
@@ -174,3 +178,24 @@ samples and speed plausibility filtering. These are source-derived estimates.
 Run `go test ./...`, `go test -race ./...`, `go vet ./...` and
 `go test ./internal/telemetry -fuzz=FuzzProtoFields -fuzztime=5s`.
 The CLI builds with `go build ./cmd/downwash` or `make build`.
+
+## Videos without recorded telemetry
+
+`Analyze` and `AnalyzeJSON` accept a valid H.264/HEVC movie with no supported
+telemetry as `format: "video"`. The response contains `frames: []`, all six
+availability flags false, and a warning to obtain the original recording from
+the SD card or the matching SRT. No location, altitude or camera exposure is
+inferred from the camera model. `stats` contains the video’s `duration_s` and
+`codec`, with `frame_count` and `gps_point_count` equal to zero.
+
+For video sources, optional `video` holds independently recorded container
+measurements: `duration_s`, `codec`, `width_px`, `height_px`,
+`frame_rate_fps` (average from the sample timing table). It is also returned
+when flight telemetry exists, so callers can distinguish full movie length
+from the retained telemetry window. The parser does not decode video frames.
+
+`ExtractMP4` preserves its error contract and returns typed `ErrNoTelemetry`
+with valid movie information when no telemetry is present. `Process` and
+`ProcessJSON` still require actual telemetry; an info-only movie cannot produce
+flight reports or fabricated tracks. Malformed video metadata and unsupported
+binary telemetry protocols remain errors, rather than info-only successes.
