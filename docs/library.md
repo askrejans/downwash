@@ -1,7 +1,7 @@
 # Offline telemetry library
 
 Import `github.com/askrejans/downwash` to analyse telemetry and produce the same
-GPX, PNG charts, Markdown, metadata JSON and PDF briefing as the command-line
+GPX, KML/KMZ, CSV, PNG charts, Markdown, metadata JSON and PDF briefing as the command-line
 tool. The library has no subprocess or network dependencies, remains pure Go,
 and renders track charts on an offline background.
 
@@ -81,6 +81,9 @@ ExifTool can extract.
   "input_path": "/flights/DJI_0001.MP4",
   "output_dir": "/flights/reports",
   "skip_gpx": false,
+  "skip_csv": false,
+  "skip_kml": false,
+  "skip_kmz": false,
   "skip_charts": false,
   "skip_markdown": false,
   "skip_metadata": false,
@@ -120,7 +123,7 @@ Both bridges return:
 ```
 
 `format` is `dji_djmd`, `dji_srt` or `downwash_json`. `AnalyzeJSON` generates no
-artifacts. `ProcessJSON` artifact keys are `gpx`, `altitude_png`, `track_png`,
+artifacts. `ProcessJSON` artifact keys are `gpx`, `csv`, `kml`, `kmz`, `altitude_png`, `track_png`,
 `markdown`, `metadata`, `pdf` and `zip`; each contains the generated file path.
 Disabled or failed outputs have no artifact key. Export failures appear in
 `warnings` while successful files remain available. Fatal errors add a nonempty
@@ -143,7 +146,21 @@ the keys actually present. Missing altitude does not pollute statistics or chart
 
 Each `frames` record contains `time_s`, `lat`, `lon`, `alt_asl_m`, `alt_agl_m`,
 `roll_deg`, `pitch_deg`, `yaw_deg`, `gimbal_pitch_deg`, `gimbal_yaw_deg`; optional
-fields are `gps_time`, `iso`, `shutter_speed`, `f_number`, `color_temp_k`.
+fields are `gps_time`, `iso`, `shutter_speed`, `f_number`, `color_temp_k` and
+`additional`. The last object preserves extra documented measurements such as
+model/serial, frame dimensions/rate, digital zoom, gimbal roll and device-clock
+readings when recorded. Raw sensor temperature has no assumed temperature unit.
+Additional named SRT values are retained with an `srt_` prefix, without guessing
+their meaning or units. Camera-only subtitles are accepted.
+
+CSV includes every retained sample, explicit units in known column names,
+additional field columns and empty cells for unavailable measurements. Text is
+escaped against spreadsheet formula interpretation. KML uses WGS84 longitude,
+latitude and recorded ASL altitude with `absolute` mode; if ASL is incomplete it
+uses `clampToGround`. Relative altitude is never described as terrain height.
+KMZ packages `doc.kml` without external dependencies. Track gaps and implausible
+GPS jumps create separate line segments. PDF and Markdown show unavailable
+measurements as N/A rather than fabricated zeroes.
 
 Coordinates use WGS84 decimal degrees, altitude uses metres, speed uses metres
 per second, and timestamps use RFC3339 UTC when source GPS time is available.

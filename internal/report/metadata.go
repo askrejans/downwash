@@ -28,6 +28,7 @@ func MetadataJSON(
 // MetadataData encodes the same document as MetadataJSON without writing a file.
 func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoName, codec string) ([]byte, error) {
 	type frameRecord struct {
+		Additional       map[string]any          `json:"additional,omitempty"`
 		TimeSec          float64                 `json:"time_s"`
 		GPSTime          string                  `json:"gps_time,omitempty"`
 		Lat              float64                 `json:"lat"`
@@ -47,41 +48,41 @@ func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoNa
 	}
 
 	type statsRecord struct {
-		DurationSec    float64 `json:"duration_s"`
-		DistanceM      float64 `json:"distance_m"`
-		MaxSpeedMS     float64 `json:"max_speed_ms"`
-		AvgSpeedMS     float64 `json:"avg_speed_ms"`
-		MaxAltASL      float64 `json:"max_alt_asl_m"`
-		MinAltASL      float64 `json:"min_alt_asl_m"`
-		MaxAltAGL      float64 `json:"max_alt_agl_m"`
-		MinAltAGL      float64 `json:"min_alt_agl_m"`
-		AltGainM       float64 `json:"alt_gain_m"`
-		AltLossM       float64 `json:"alt_loss_m"`
-		MaxClimbMS     float64 `json:"max_climb_ms"`
-		MaxDescentMS   float64 `json:"max_descent_ms"`
-		MaxRoll        float64 `json:"max_roll_deg"`
-		MaxPitch       float64 `json:"max_pitch_deg"`
-		MaxYawRate     float64 `json:"max_yaw_rate_deg_s"`
-		MaxHomeDist    float64 `json:"max_home_dist_m"`
-		FrameCount     int     `json:"frame_count"`
-		GPSPointCount  int     `json:"gps_point_count"`
-		StartTime      string  `json:"start_time,omitempty"`
-		EndTime        string  `json:"end_time,omitempty"`
-		StartLat       float64 `json:"start_lat"`
-		StartLon       float64 `json:"start_lon"`
-		EndLat         float64 `json:"end_lat"`
-		EndLon         float64 `json:"end_lon"`
-		ISO            int     `json:"iso,omitempty"`
-		ShutterSpeed   string  `json:"shutter_speed,omitempty"`
-		FNumber        float64 `json:"f_number,omitempty"`
-		ColorTemp      int     `json:"color_temp_k,omitempty"`
-		Codec          string  `json:"codec,omitempty"`
+		DurationSec   float64 `json:"duration_s"`
+		DistanceM     float64 `json:"distance_m"`
+		MaxSpeedMS    float64 `json:"max_speed_ms"`
+		AvgSpeedMS    float64 `json:"avg_speed_ms"`
+		MaxAltASL     float64 `json:"max_alt_asl_m"`
+		MinAltASL     float64 `json:"min_alt_asl_m"`
+		MaxAltAGL     float64 `json:"max_alt_agl_m"`
+		MinAltAGL     float64 `json:"min_alt_agl_m"`
+		AltGainM      float64 `json:"alt_gain_m"`
+		AltLossM      float64 `json:"alt_loss_m"`
+		MaxClimbMS    float64 `json:"max_climb_ms"`
+		MaxDescentMS  float64 `json:"max_descent_ms"`
+		MaxRoll       float64 `json:"max_roll_deg"`
+		MaxPitch      float64 `json:"max_pitch_deg"`
+		MaxYawRate    float64 `json:"max_yaw_rate_deg_s"`
+		MaxHomeDist   float64 `json:"max_home_dist_m"`
+		FrameCount    int     `json:"frame_count"`
+		GPSPointCount int     `json:"gps_point_count"`
+		StartTime     string  `json:"start_time,omitempty"`
+		EndTime       string  `json:"end_time,omitempty"`
+		StartLat      float64 `json:"start_lat"`
+		StartLon      float64 `json:"start_lon"`
+		EndLat        float64 `json:"end_lat"`
+		EndLon        float64 `json:"end_lon"`
+		ISO           int     `json:"iso,omitempty"`
+		ShutterSpeed  string  `json:"shutter_speed,omitempty"`
+		FNumber       float64 `json:"f_number,omitempty"`
+		ColorTemp     int     `json:"color_temp_k,omitempty"`
+		Codec         string  `json:"codec,omitempty"`
 	}
 
 	type metadata struct {
 		Version   string        `json:"version"`
 		Source    string        `json:"source"`
-		Generated string       `json:"generated"`
+		Generated string        `json:"generated"`
 		Stats     statsRecord   `json:"stats"`
 		Frames    []frameRecord `json:"frames"`
 	}
@@ -126,6 +127,7 @@ func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoNa
 	for _, f := range frames {
 		rec := frameRecord{
 			TimeSec:          f.SampleTime.Seconds(),
+			Additional:       f.Additional,
 			Lat:              f.Lat,
 			Lon:              f.Lon,
 			AltASL:           f.AltAbsolute,
@@ -151,8 +153,8 @@ func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoNa
 		Version:   "1.0",
 		Source:    videoName,
 		Generated: time.Now().UTC().Format(time.RFC3339),
-		Stats:    sr,
-		Frames:   fr,
+		Stats:     sr,
+		Frames:    fr,
 	}
 
 	data, err := json.MarshalIndent(doc, "", "  ")

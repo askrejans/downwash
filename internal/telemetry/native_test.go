@@ -270,3 +270,23 @@ func FuzzProtoFields(f *testing.F) {
 	f.Add([]byte{10, 255})
 	f.Fuzz(func(t *testing.T, data []byte) { _, _ = protoFields(data) })
 }
+
+func TestAdditionalDJIMeasurements(t *testing.T) {
+	width := append(fieldVar(1, 3840), fieldVar(2, 2160)...)
+	width = append(width, fieldDouble(3, 29.97)...)
+	header := fieldBytes(1, append(fieldBytes(5, []byte("ABC-123")), fieldBytes(10, []byte("Mavic 3"))...))
+	frame := fieldBytes(1, fieldVar(1, 42))
+	frame = append(frame, fieldBytes(2, fieldBytes(6, fieldBytes(1, binary.LittleEndian.AppendUint32(nil, math.Float32bits(2)))))...)
+	data := append(fieldBytes(1, header), fieldBytes(2, fieldBytes(2, width))...)
+	data = append(data, fieldBytes(3, frame)...)
+	values, err := djiAdditional(data, "dvtm_wm265e.proto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["model"] != "Mavic 3" || values["serial_number"] != "ABC-123" || values["frame_width_px"] != float64(3840) || values["frame_number"] != float64(42) || values["digital_zoom"] != float64(2) {
+		t.Fatal(values)
+	}
+	if _, ok := values["sensor_temperature"]; ok {
+		t.Fatal("invented temperature")
+	}
+}

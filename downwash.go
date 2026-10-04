@@ -16,6 +16,7 @@ import (
 
 	"github.com/askrejans/downwash/internal/chart"
 	"github.com/askrejans/downwash/internal/gpx"
+	"github.com/askrejans/downwash/internal/kml"
 	"github.com/askrejans/downwash/internal/report"
 	"github.com/askrejans/downwash/internal/telemetry"
 )
@@ -33,6 +34,9 @@ type Availability = telemetry.Availability
 type Request struct {
 	InputPath     string `json:"input_path"`
 	OutputDir     string `json:"output_dir"`
+	SkipCSV       bool   `json:"skip_csv"`
+	SkipKML       bool   `json:"skip_kml"`
+	SkipKMZ       bool   `json:"skip_kmz"`
 	SkipGPX       bool   `json:"skip_gpx"`
 	SkipCharts    bool   `json:"skip_charts"`
 	SkipMarkdown  bool   `json:"skip_markdown"`
@@ -104,6 +108,9 @@ func Process(ctx context.Context, request Request) (Response, error) {
 		}
 	}
 	write("gpx", "_track.gpx", !request.SkipGPX, func(path string) error { return gpx.Write(a.frames, base, path) })
+	write("csv", "_telemetry.csv", !request.SkipCSV, func(path string) error { return report.CSV(a.frames, path) })
+	write("kml", "_track.kml", !request.SkipKML, func(path string) error { return kml.Write(a.frames, base, path) })
+	write("kmz", "_track.kmz", !request.SkipKMZ, func(path string) error { return kml.WriteKMZ(a.frames, base, path) })
 	// PDFs include the charts even when standalone chart export is disabled.
 	altPath, trackPath := out("_altitude.png"), out("_track.png")
 	if request.SkipCharts && !request.SkipPDF {
@@ -131,7 +138,7 @@ func Process(ctx context.Context, request Request) (Response, error) {
 	write("pdf", "_briefing.pdf", !request.SkipPDF, func(path string) error { return report.PDF(a.stats, base, a.codec, altPath, trackPath, path) })
 	if request.ZipOutput {
 		files := make([]string, 0, len(a.response.Artifacts))
-		for _, key := range []string{"gpx", "altitude_png", "track_png", "markdown", "metadata", "pdf"} {
+		for _, key := range []string{"csv", "kml", "kmz", "gpx", "altitude_png", "track_png", "markdown", "metadata", "pdf"} {
 			if path := a.response.Artifacts[key]; path != "" {
 				files = append(files, path)
 			}
@@ -301,6 +308,7 @@ func readMetadata(path string) ([]Frame, error) {
 	var document struct {
 		Version string `json:"version"`
 		Frames  []struct {
+			Additional  map[string]any          `json:"additional"`
 			TimeSec     *float64                `json:"time_s"`
 			GPSTime     string                  `json:"gps_time"`
 			Lat         float64                 `json:"lat"`
@@ -342,6 +350,7 @@ func readMetadata(path string) ([]Frame, error) {
 			return nil, fmt.Errorf("metadata frame is missing time_s")
 		}
 		f := Frame{SampleTime: time.Duration(value(rec.TimeSec) * float64(time.Second)), Lat: rec.Lat, Lon: rec.Lon, AltAbsolute: value(rec.AltASL), AltRelative: value(rec.AltAGL), Roll: value(rec.Roll), Pitch: value(rec.Pitch), Yaw: value(rec.Yaw), GimbalPitch: value(rec.GimbalPitch), GimbalYaw: value(rec.GimbalYaw), ISO: rec.ISO, ShutterSpeed: rec.Shutter, FNumber: rec.FNumber, ColorTemperature: rec.Color}
+		f.Additional = rec.Additional
 		f.Available = rec.Available
 		if f.Available == nil {
 			f.Available = &telemetry.Availability{GPS: telemetry.ValidGPS(f.Lat, f.Lon), AltASL: rec.AltASL != nil, AltRelative: rec.AltAGL != nil, Attitude: rec.Roll != nil || rec.Pitch != nil || rec.Yaw != nil, Gimbal: rec.GimbalPitch != nil || rec.GimbalYaw != nil, Camera: f.ISO > 0 || f.ShutterSpeed != "" || f.FNumber > 0 || f.ColorTemperature > 0}

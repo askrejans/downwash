@@ -26,7 +26,7 @@ func TestOfflineLibraryExports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(response.Artifacts) != 7 {
+	if len(response.Artifacts) != 10 {
 		t.Fatalf("artifacts=%+v warnings=%v", response.Artifacts, response.Warnings)
 	}
 	for key, path := range response.Artifacts {
@@ -55,7 +55,7 @@ func TestOfflineLibraryExports(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pack.Close()
-	if len(pack.File) != 6 {
+	if len(pack.File) != 9 {
 		t.Fatalf("ZIP files=%d", len(pack.File))
 	}
 	gpx, err := os.ReadFile(response.Artifacts["gpx"])
@@ -75,7 +75,7 @@ func TestOfflineLibraryExports(t *testing.T) {
 }
 
 func TestLibraryTrimSkipAndErrors(t *testing.T) {
-	request := Request{InputPath: testSource(t), OutputDir: t.TempDir(), StartOffsetMS: 1000, EndTrimMS: 500, SkipCharts: true, SkipPDF: true, SkipGPX: true, SkipMarkdown: true, SkipMetadata: true}
+	request := Request{InputPath: testSource(t), OutputDir: t.TempDir(), StartOffsetMS: 1000, EndTrimMS: 500, SkipCharts: true, SkipPDF: true, SkipGPX: true, SkipMarkdown: true, SkipMetadata: true, SkipCSV: true, SkipKML: true, SkipKMZ: true}
 	r, err := Process(context.Background(), request)
 	if err != nil {
 		t.Fatal(err)

@@ -22,6 +22,7 @@ import (
 // Frame holds per-video-frame telemetry decoded from the DJI djmd protobuf
 // stream embedded in an MP4 file.
 type Frame struct {
+	Additional       map[string]any // extra documented fields, without guessed defaults
 	SampleTime       time.Duration
 	GPSTime          time.Time
 	Lat              float64 // decimal degrees, positive = North
@@ -52,6 +53,7 @@ type Availability struct {
 
 // FlightStats summarises a completed flight derived from a Frame slice.
 type FlightStats struct {
+	Available     *Availability // nil preserves manually constructed legacy statistics
 	Duration      time.Duration
 	MaxAltASL     float64
 	MinAltASL     float64
@@ -70,18 +72,18 @@ type FlightStats struct {
 	EndLon        float64
 
 	// Altitude dynamics.
-	AltGainM      float64 // total climb (sum of positive AGL deltas), metres
-	AltLossM      float64 // total descent (sum of negative AGL deltas), metres
-	MaxClimbMS    float64 // max vertical climb rate, m/s (positive = up)
-	MaxDescentMS  float64 // max vertical descent rate, m/s (positive = down)
+	AltGainM     float64 // total climb (sum of positive AGL deltas), metres
+	AltLossM     float64 // total descent (sum of negative AGL deltas), metres
+	MaxClimbMS   float64 // max vertical climb rate, m/s (positive = up)
+	MaxDescentMS float64 // max vertical descent rate, m/s (positive = down)
 
 	// Attitude extremes.
-	MaxRoll       float64 // degrees (absolute max)
-	MaxPitch      float64 // degrees (absolute max)
-	MaxYawRate    float64 // degrees/s
+	MaxRoll    float64 // degrees (absolute max)
+	MaxPitch   float64 // degrees (absolute max)
+	MaxYawRate float64 // degrees/s
 
 	// Distance from home (takeoff point).
-	MaxHomeDist   float64 // metres, max great-circle distance from start
+	MaxHomeDist float64 // metres, max great-circle distance from start
 
 	// Camera settings from the first valid frame.
 	ISO          int
@@ -285,8 +287,8 @@ func ParseSampleTime(s string) (time.Duration, error) {
 		if err != nil {
 			return 0, fmt.Errorf("parse %q seconds: %w", s, err)
 		}
-		return time.Duration(float64(h)*3600*float64(time.Second)+
-			float64(m)*60*float64(time.Second)+
+		return time.Duration(float64(h)*3600*float64(time.Second) +
+			float64(m)*60*float64(time.Second) +
 			sec*float64(time.Second)), nil
 	}
 
@@ -324,10 +326,11 @@ func ParseDMSCoord(s string) (float64, error) {
 // acquisition noise at the start of a flight.
 func ComputeStats(frames []Frame) FlightStats {
 	if len(frames) == 0 {
-		return FlightStats{}
+		return FlightStats{Available: &Availability{}}
 	}
 
 	s := FlightStats{
+		Available:  &Availability{},
 		FrameCount: len(frames),
 		StartTime:  frames[0].GPSTime,
 		EndTime:    frames[len(frames)-1].GPSTime,
@@ -342,6 +345,16 @@ func ComputeStats(frames []Frame) FlightStats {
 
 	// ── Per-frame stats (altitude, attitude, home distance) ─────────────
 	for i, f := range frames {
+		a := f.Available
+		if a == nil {
+			a = &Availability{GPS: ValidGPS(f.Lat, f.Lon), AltASL: true, AltRelative: true, Attitude: true, Gimbal: true, Camera: true}
+		}
+		s.Available.GPS = s.Available.GPS || (a.GPS && ValidGPS(f.Lat, f.Lon))
+		s.Available.AltASL = s.Available.AltASL || a.AltASL
+		s.Available.AltRelative = s.Available.AltRelative || a.AltRelative
+		s.Available.Attitude = s.Available.Attitude || a.Attitude
+		s.Available.Gimbal = s.Available.Gimbal || a.Gimbal
+		s.Available.Camera = s.Available.Camera || a.Camera
 		if !f.GPSTime.IsZero() {
 			if s.StartTime.IsZero() {
 				s.StartTime = f.GPSTime
@@ -388,10 +401,10 @@ func ComputeStats(frames []Frame) FlightStats {
 		}
 
 		// Attitude extremes (absolute values).
-		if absVal := math.Abs(f.Roll); absVal > s.MaxRoll {
+		if absVal := math.Abs(f.Roll); (f.Available == nil || f.Available.Attitude) && absVal > s.MaxRoll {
 			s.MaxRoll = absVal
 		}
-		if absVal := math.Abs(f.Pitch); absVal > s.MaxPitch {
+		if absVal := math.Abs(f.Pitch); (f.Available == nil || f.Available.Attitude) && absVal > s.MaxPitch {
 			s.MaxPitch = absVal
 		}
 

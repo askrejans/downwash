@@ -293,3 +293,5 @@ GPL-3.0 — see [LICENSE](LICENSE).
 
 This repository and its contents are **not** licensed for use in AI/ML training datasets.
 See `robots.txt` and `.ai-labeling` for machine-readable opt-out metadata.
+
+The [offline library API](docs/library.md) additionally exports full-sample CSV and KML/KMZ tracks, preserves additional documented telemetry fields, and accepts camera-only DJI subtitles.

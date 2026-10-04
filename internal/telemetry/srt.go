@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	srtTimeRE = regexp.MustCompile(`^(\d{2,}):(\d{2}):(\d{2})[,.](\d{3})\s*-->`)
-	srtKeyRE  = regexp.MustCompile(`(?i)\b(latitude|longitude|longtitude|rel_alt|abs_alt|drone_roll|drone_pitch|drone_yaw|gb_pitch|gb_yaw|gimbal_pitch|gimbal_yaw|iso|fnum|ct|shutter)\s*:\s*([^\]\s,]+)`)
-	srtGPSRE  = regexp.MustCompile(`(?i)\bGPS\s*\(\s*([-+\d.]+)\s*,\s*([-+\d.]+)\s*,\s*([-+\d.]+)[A-Za-z]*\s*\)`)
-	srtBaroRE = regexp.MustCompile(`(?i)\bBAROMETER\s*[:(]\s*([-+\d.]+)`)
+	srtTimeRE  = regexp.MustCompile(`^(\d{2,}):(\d{2}):(\d{2})[,.](\d{3})\s*-->`)
+	srtKeyRE   = regexp.MustCompile(`(?i)\b(latitude|longitude|longtitude|rel_alt|abs_alt|drone_roll|drone_pitch|drone_yaw|gb_pitch|gb_yaw|gimbal_pitch|gimbal_yaw|iso|fnum|ct|shutter)\s*:\s*([^\]\s,]+)`)
+	srtExtraRE = regexp.MustCompile(`(?i)\b([a-z][a-z0-9_]*)\s*:\s*([^\]\s,<>]+)`)
+	srtGPSRE   = regexp.MustCompile(`(?i)\bGPS\s*\(\s*([-+\d.]+)\s*,\s*([-+\d.]+)\s*,\s*([-+\d.]+)[A-Za-z]*\s*\)`)
+	srtBaroRE  = regexp.MustCompile(`(?i)\bBAROMETER\s*[:(]\s*([-+\d.]+)`)
 )
 
 // ParseSRT reads DJI bracketed telemetry subtitles, including DJI's documented
@@ -47,25 +48,29 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 		if latErr != nil || lonErr != nil {
 			match := srtGPSRE.FindStringSubmatch(text.String())
 			if match == nil {
-				return
-			}
-			first, firstErr := strconv.ParseFloat(match[1], 64)
-			second, secondErr := strconv.ParseFloat(match[2], 64)
-			if firstErr != nil || secondErr != nil {
-				return
-			}
-			switch {
-			case math.Abs(first) <= 90 && math.Abs(second) > 90 && math.Abs(second) <= 180:
-				lat, lon = first, second
-			case math.Abs(second) <= 90 && math.Abs(first) > 90 && math.Abs(first) <= 180:
-				lat, lon = second, first
-			default:
-				subtitleErr = fmt.Errorf("telemetry: ambiguous or invalid legacy GPS coordinate order; use labeled latitude/longitude subtitles")
-				return
-			}
-			values["abs_alt"] = match[3]
-			if baro := srtBaroRE.FindStringSubmatch(text.String()); baro != nil {
-				values["rel_alt"] = baro[1]
+				if len(values) == 0 {
+					return
+				}
+				lat, lon = 0, 0
+			} else {
+				first, firstErr := strconv.ParseFloat(match[1], 64)
+				second, secondErr := strconv.ParseFloat(match[2], 64)
+				if firstErr != nil || secondErr != nil {
+					return
+				}
+				switch {
+				case math.Abs(first) <= 90 && math.Abs(second) > 90 && math.Abs(second) <= 180:
+					lat, lon = first, second
+				case math.Abs(second) <= 90 && math.Abs(first) > 90 && math.Abs(first) <= 180:
+					lat, lon = second, first
+				default:
+					subtitleErr = fmt.Errorf("telemetry: ambiguous or invalid legacy GPS coordinate order; use labeled latitude/longitude subtitles")
+					return
+				}
+				values["abs_alt"] = match[3]
+				if baro := srtBaroRE.FindStringSubmatch(text.String()); baro != nil {
+					values["rel_alt"] = baro[1]
+				}
 			}
 		}
 		if !ValidGPS(lat, lon) {
@@ -96,6 +101,20 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 		}
 		if f.FNumber >= 100 {
 			f.FNumber /= 100 // older DJI subtitles encode f/1.7 as 170
+		}
+		for _, match := range srtExtraRE.FindAllStringSubmatch(text.String(), -1) {
+			key := strings.ToLower(match[1])
+			if _, known := values[key]; known {
+				continue
+			}
+			if f.Additional == nil {
+				f.Additional = make(map[string]any)
+			}
+			value := any(match[2])
+			if number, err := strconv.ParseFloat(match[2], 64); err == nil && !math.IsNaN(number) && !math.IsInf(number, 0) {
+				value = number
+			}
+			f.Additional["srt_"+key] = value
 		}
 		frames = append(frames, f)
 	}

@@ -241,6 +241,7 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	}
 	var frames []Frame
 	var protocol string
+	headerFields := map[string]any{}
 	var sample, timeUsed uint32
 	var ticks uint64
 	chunkEntry, timeEntry := 0, 0
@@ -273,6 +274,21 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 				return nil, protocol, fmt.Errorf("telemetry: DJI sample %d: %w", sample, err)
 			}
 			protocol = nextProtocol
+			additional, err := djiAdditional(data, protocol)
+			if err != nil {
+				return nil, protocol, fmt.Errorf("telemetry: additional fields: %w", err)
+			}
+			for _, key := range []string{"model", "serial_number", "frame_width_px", "frame_height_px", "frame_rate_fps"} {
+				if value, ok := additional[key]; ok {
+					headerFields[key] = value
+				}
+			}
+			for key, value := range headerFields {
+				additional[key] = value
+			}
+			if len(additional) > 0 {
+				frame.Additional = additional
+			}
 			if hasFrame {
 				frame.SampleTime = time.Duration(float64(ticks) / float64(scale) * float64(time.Second))
 				frames = append(frames, frame)
