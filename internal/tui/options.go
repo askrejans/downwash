@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/askrejans/downwash/internal/pipeline"
 )
@@ -83,7 +83,7 @@ func (m optionsModel) menuItems() []string {
 }
 
 func (m optionsModel) update(msg tea.Msg) (optionsModel, tea.Cmd) {
-	km, ok := msg.(tea.KeyMsg)
+	km, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return m, nil
 	}
@@ -147,7 +147,7 @@ func (m optionsModel) update(msg tea.Msg) (optionsModel, tea.Cmd) {
 			m.cursor = maxCursor
 		}
 
-	case " ", "enter":
+	case "space", "enter":
 		item := items[m.cursor]
 		switch item {
 		case "gpx":

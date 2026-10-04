@@ -51,6 +51,18 @@ func Transcode(ctx context.Context, opts Options) error {
 	if codec == "" {
 		codec = "h264"
 	}
+	if codec != "h264" && codec != "h265" {
+		return fmt.Errorf("ffmpeg: unsupported codec %q", codec)
+	}
+	if opts.StartOffsetMS < 0 || opts.EndTrimMS < 0 {
+		return fmt.Errorf("ffmpeg: trim offsets must be nonnegative")
+	}
+	if opts.EndTrimMS > 0 && opts.DurationMS <= 0 {
+		return fmt.Errorf("ffmpeg: source duration is required for end trimming")
+	}
+	if opts.EndTrimMS > 0 && opts.StartOffsetMS+opts.EndTrimMS >= opts.DurationMS {
+		return fmt.Errorf("ffmpeg: trim window contains no video")
+	}
 	bitrate := opts.Bitrate
 	if bitrate == "" {
 		bitrate = "15M"

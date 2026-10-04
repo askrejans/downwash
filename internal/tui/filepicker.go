@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/filepicker"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/filepicker"
+	tea "charm.land/bubbletea/v2"
 )
 
 // filePickerModel wraps the bubbles filepicker filtered to MP4 files.
@@ -26,8 +26,8 @@ func newFilePickerModel(startDir string) filePickerModel {
 
 	fp := filepicker.New()
 	fp.CurrentDirectory = startDir
-	fp.AllowedTypes = []string{".mp4", ".MP4"}
-	fp.Height = 15
+	fp.AllowedTypes = []string{".mp4", ".MP4", ".srt", ".SRT"}
+	fp.SetHeight(15)
 
 	return filePickerModel{picker: fp}
 }
@@ -38,7 +38,7 @@ func (m filePickerModel) init() tea.Cmd {
 
 func (m filePickerModel) update(msg tea.Msg) (filePickerModel, tea.Cmd) {
 	// Handle 's' key for selecting current directory (batch mode).
-	if km, ok := msg.(tea.KeyMsg); ok && km.String() == "s" {
+	if km, ok := msg.(tea.KeyPressMsg); ok && km.String() == "s" {
 		m.selected = m.picker.CurrentDirectory
 		m.isDir = true
 		return m, nil
@@ -52,7 +52,7 @@ func (m filePickerModel) update(msg tea.Msg) (filePickerModel, tea.Cmd) {
 		m.isDir = false
 		// Validate it's actually an MP4.
 		ext := strings.ToLower(filepath.Ext(path))
-		if ext != ".mp4" {
+		if ext != ".mp4" && ext != ".srt" {
 			m.err = nil
 			m.selected = ""
 		}
@@ -68,7 +68,7 @@ func (m filePickerModel) update(msg tea.Msg) (filePickerModel, tea.Cmd) {
 
 func (m filePickerModel) view() string {
 	var s strings.Builder
-	s.WriteString(pickerTitleStyle.Render("Select a DJI MP4 video file:"))
+	s.WriteString(pickerTitleStyle.Render("Select a DJI MP4 video file or SRT telemetry:"))
 	s.WriteString("\n")
 	s.WriteString(m.picker.View())
 	s.WriteString("\n")

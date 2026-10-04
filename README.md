@@ -8,14 +8,15 @@
 
 > *Downwash* is the aviation term for the air pushed downward by a rotor — your drone's data, pushed straight to you.
 
-> **Tested with:** DJI Mini 4 Pro
+> **Telemetry support:** Native decoding of 16 documented DJI timed-metadata protocols, bracketed DJI SRT subtitles, and Downwash metadata JSON. See the [protocol and field coverage](docs/library.md#source-coverage) for supported models and limits.
 
 ---
 
 
 ## Features
 
-- **Telemetry extraction** — reads the DJI djmd protobuf stream via [exiftool](https://exiftool.org), parsing GPS, altitude, attitude, and camera settings at ~30 Hz
+- **Telemetry extraction** — reads supported DJI djmd protobuf streams directly, with an [exiftool](https://exiftool.org) fallback in the CLI; also parses DJI SRT telemetry subtitles
+- **Offline Go library** — exported analysis, report generation and JSON bridge APIs with no subprocess or network dependencies; see the [library guide](docs/library.md)
 - **GPX 1.1 track file** — compatible with Google Earth, Garmin Basecamp, and any GPX-capable mapping tool
 - **Altitude & speed chart** — three-panel PNG: altitude ASL, AGL, and ground speed over time, dark aviation theme
 - **Flight track map** — top-down GPS path over dark OSM map tiles ([CartoDB dark_matter](https://carto.com/)), with automatic fallback to plain dark chart if tiles are unavailable
@@ -36,10 +37,13 @@
 
 | Tool | Purpose | Install |
 |---|---|---|
-| [exiftool](https://exiftool.org) | Telemetry extraction | `brew install exiftool` / `apt install libimage-exiftool-perl` |
+| [exiftool](https://exiftool.org) | Optional fallback for metadata outside native protocol support | `brew install exiftool` / `apt install libimage-exiftool-perl` |
 | [ffmpeg](https://ffmpeg.org) | Video probing & transcode | `brew install ffmpeg` / `apt install ffmpeg` |
 
-Both tools must be available on `$PATH`. If they are missing, downwash will log a warning and skip the affected step rather than aborting.
+Supported native telemetry and library exports need neither tool. Install ffmpeg
+for CLI codec probing and video transcoding, and exiftool for the CLI fallback.
+Sources without extractable telemetry fail explicitly; requested output failures
+are reported rather than silently returning successful empty analysis.
 
 ---
 
@@ -85,7 +89,7 @@ go build -o downwash ./cmd/downwash
 make build
 ```
 
-Requires **Go 1.21+**.
+Requires **Go 1.27.1+**.
 
 ---
 

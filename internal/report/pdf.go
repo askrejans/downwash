@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jung-kurt/gofpdf"
+	gofpdf "codeberg.org/go-pdf/fpdf"
 
 	"github.com/askrejans/downwash/internal/telemetry"
 )

@@ -18,22 +18,32 @@ func MetadataJSON(
 	videoName, codec string,
 	outputPath string,
 ) error {
+	data, err := MetadataData(frames, stats, videoName, codec)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(outputPath, data, 0o644)
+}
+
+// MetadataData encodes the same document as MetadataJSON without writing a file.
+func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoName, codec string) ([]byte, error) {
 	type frameRecord struct {
-		TimeSec          float64 `json:"time_s"`
-		GPSTime          string  `json:"gps_time,omitempty"`
-		Lat              float64 `json:"lat"`
-		Lon              float64 `json:"lon"`
-		AltASL           float64 `json:"alt_asl_m"`
-		AltAGL           float64 `json:"alt_agl_m"`
-		Roll             float64 `json:"roll_deg"`
-		Pitch            float64 `json:"pitch_deg"`
-		Yaw              float64 `json:"yaw_deg"`
-		GimbalPitch      float64 `json:"gimbal_pitch_deg"`
-		GimbalYaw        float64 `json:"gimbal_yaw_deg"`
-		ISO              int     `json:"iso,omitempty"`
-		ShutterSpeed     string  `json:"shutter_speed,omitempty"`
-		FNumber          float64 `json:"f_number,omitempty"`
-		ColorTemperature int     `json:"color_temp_k,omitempty"`
+		TimeSec          float64                 `json:"time_s"`
+		GPSTime          string                  `json:"gps_time,omitempty"`
+		Lat              float64                 `json:"lat"`
+		Lon              float64                 `json:"lon"`
+		AltASL           float64                 `json:"alt_asl_m"`
+		AltAGL           float64                 `json:"alt_agl_m"`
+		Roll             float64                 `json:"roll_deg"`
+		Pitch            float64                 `json:"pitch_deg"`
+		Yaw              float64                 `json:"yaw_deg"`
+		GimbalPitch      float64                 `json:"gimbal_pitch_deg"`
+		GimbalYaw        float64                 `json:"gimbal_yaw_deg"`
+		ISO              int                     `json:"iso,omitempty"`
+		ShutterSpeed     string                  `json:"shutter_speed,omitempty"`
+		FNumber          float64                 `json:"f_number,omitempty"`
+		ColorTemperature int                     `json:"color_temp_k,omitempty"`
+		Available        *telemetry.Availability `json:"available,omitempty"`
 	}
 
 	type statsRecord struct {
@@ -129,6 +139,7 @@ func MetadataJSON(
 			ShutterSpeed:     f.ShutterSpeed,
 			FNumber:          f.FNumber,
 			ColorTemperature: f.ColorTemperature,
+			Available:        f.Available,
 		}
 		if !f.GPSTime.IsZero() {
 			rec.GPSTime = f.GPSTime.UTC().Format(time.RFC3339)
@@ -146,7 +157,7 @@ func MetadataJSON(
 
 	data, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return fmt.Errorf("report: marshal metadata JSON: %w", err)
+		return nil, fmt.Errorf("report: marshal metadata JSON: %w", err)
 	}
-	return os.WriteFile(outputPath, data, 0o644)
+	return data, nil
 }

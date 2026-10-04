@@ -3,8 +3,8 @@
 # ────────────────────────────────────────────────────────────────────────────
 
 # Compiled binaries
-downwash
-downwash.exe
+/downwash
+/downwash.exe
 dist/
 
 # Go toolchain

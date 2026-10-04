@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/askrejans/downwash/internal/pipeline"
 )
@@ -92,7 +92,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c":
 			m.cancel()
@@ -249,7 +249,7 @@ func (m Model) startNextBatchFile() tea.Cmd {
 }
 
 // View implements tea.Model.
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	var sb strings.Builder
 	sb.WriteString(renderHeader(m.cfg.Version))
 	sb.WriteString("\n")
@@ -289,7 +289,9 @@ func (m Model) View() string {
 		sb.WriteString(helpStyle.Render("  Press enter or q to exit"))
 	}
 
-	return sb.String()
+	view := tea.NewView(sb.String())
+	view.AltScreen = true
+	return view
 }
 
 // renderResult formats the pipeline result as styled output.

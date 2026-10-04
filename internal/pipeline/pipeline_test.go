@@ -43,6 +43,32 @@ func TestRunInputNotFound(t *testing.T) {
 	}
 }
 
+func TestRunReportsTelemetryAndExportFailures(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	dir := t.TempDir()
+	input := filepath.Join(dir, "invalid.mp4")
+	if err := os.WriteFile(input, []byte("invalid"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Run(context.Background(), Options{InputPath: input, OutputDir: dir}); err == nil {
+		t.Fatal("failed telemetry returned success")
+	}
+	srt := filepath.Join(dir, "flight.srt")
+	if err := os.WriteFile(srt, []byte("1\n00:00:00,000 --> 00:00:01,000\n[latitude: 57] [longitude: 24] [rel_alt: 12 abs_alt: 72]"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "flight_report.md"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Run(context.Background(), Options{InputPath: srt, OutputDir: dir, SkipGPX: true, SkipCharts: true, SkipMetadata: true, SkipPDF: true})
+	if err == nil || result.MarkdownPath != "" {
+		t.Fatalf("failed report returned success: %+v error=%v", result, err)
+	}
+	if _, err := Run(context.Background(), Options{InputPath: srt, OutputDir: dir, StartOffsetMS: 1000}); err == nil {
+		t.Fatal("empty trim window returned success")
+	}
+}
+
 func TestRunCreatesOutputDir(t *testing.T) {
 	// Create a dummy file to act as input (telemetry will fail, but that's non-fatal).
 	dir := t.TempDir()

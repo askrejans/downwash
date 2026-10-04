@@ -1,9 +1,18 @@
 package ffmpeg
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
+
+func TestTranscodeRejectsInvalidOptionsBeforeLaunching(t *testing.T) {
+	for _, opts := range []Options{{Codec: "av1"}, {StartOffsetMS: -1}, {EndTrimMS: -1}, {EndTrimMS: 500}, {EndTrimMS: 1000, DurationMS: 1000}, {StartOffsetMS: 800, EndTrimMS: 500, DurationMS: 1000}} {
+		if err := Transcode(context.Background(), opts); err == nil {
+			t.Fatalf("invalid options accepted: %+v", opts)
+		}
+	}
+}
 
 // TestTranscodeErrorString verifies the Error() method format.
 func TestTranscodeErrorString(t *testing.T) {

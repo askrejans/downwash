@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,9 +34,20 @@ type Frame struct {
 	GimbalPitch      float64 // degrees
 	GimbalYaw        float64 // degrees
 	ISO              int
-	ShutterSpeed     string  // raw string, e.g. "1/500"
-	FNumber          float64 // e.g. 1.7
-	ColorTemperature int     // Kelvin
+	ShutterSpeed     string        // raw string, e.g. "1/500"
+	FNumber          float64       // e.g. 1.7
+	ColorTemperature int           // Kelvin
+	Available        *Availability // nil means legacy frames with all measurement fields available
+}
+
+// Availability identifies measurements actually recorded in a source frame.
+type Availability struct {
+	GPS         bool `json:"gps"`
+	AltASL      bool `json:"alt_asl"`
+	AltRelative bool `json:"alt_relative"`
+	Attitude    bool `json:"attitude"`
+	Gimbal      bool `json:"gimbal"`
+	Camera      bool `json:"camera"`
 }
 
 // FlightStats summarises a completed flight derived from a Frame slice.
@@ -86,6 +99,22 @@ const exiftoolArgs = "$SampleTime,$GPSDateTime,$GPSLatitude,$GPSLongitude," +
 // frames. Each frame corresponds to one video frame (~1/30 s for 29.97 fps).
 // The returned slice is ordered by ascending SampleTime.
 func Extract(ctx context.Context, videoPath string, logger *slog.Logger) ([]Frame, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if strings.EqualFold(filepath.Ext(videoPath), ".srt") {
+		f, err := os.Open(videoPath)
+		if err != nil {
+			return nil, fmt.Errorf("telemetry: open SRT: %w", err)
+		}
+		defer f.Close()
+		return ParseSRT(f)
+	}
+	if frames, _, err := ExtractMP4(ctx, videoPath); err == nil {
+		return frames, nil
+	} else {
+		logger.Debug("native telemetry unavailable; trying exiftool", "err", err)
+	}
 	cmd := exec.CommandContext(ctx, "exiftool", "-ee", "-p", exiftoolArgs, videoPath)
 
 	stdout, err := cmd.StdoutPipe()
@@ -132,6 +161,12 @@ func Extract(ctx context.Context, videoPath string, logger *slog.Logger) ([]Fram
 		logger.Debug("exiftool non-zero exit (ignored, frames extracted)",
 			"err", err, "frames", len(frames))
 	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("telemetry: read exiftool output: %w", err)
+	}
+	if len(frames) == 0 {
+		return nil, fmt.Errorf("telemetry: exiftool returned no telemetry frames")
+	}
 
 	logger.Info("telemetry extracted", "frames", len(frames), "video", videoPath)
 	return frames, nil
@@ -172,8 +207,16 @@ func parseCSVLine(line string) (Frame, error) {
 	fnum := parseFloat(parts[13])
 	colorTemp, _ := strconv.Atoi(strings.TrimSpace(parts[14]))
 
+	var gpsTime time.Time
+	for _, format := range []string{time.RFC3339Nano, "2006:01:02 15:04:05.999Z07:00", "2006:01:02 15:04:05.999"} {
+		if parsed, err := time.Parse(format, strings.TrimSpace(parts[1])); err == nil {
+			gpsTime = parsed
+			break
+		}
+	}
 	return Frame{
 		SampleTime:       sampleTime,
+		GPSTime:          gpsTime,
 		Lat:              lat,
 		Lon:              lon,
 		AltAbsolute:      altASL,
@@ -187,6 +230,7 @@ func parseCSVLine(line string) (Frame, error) {
 		ShutterSpeed:     strings.TrimSpace(parts[12]),
 		FNumber:          fnum,
 		ColorTemperature: colorTemp,
+		Available:        &Availability{GPS: ValidGPS(lat, lon), AltASL: strings.TrimSpace(parts[4]) != "", AltRelative: strings.TrimSpace(parts[5]) != "", Attitude: strings.TrimSpace(parts[6]+parts[7]+parts[8]) != "", Gimbal: strings.TrimSpace(parts[9]+parts[10]) != "", Camera: iso > 0 || fnum > 0 || colorTemp > 0 || strings.TrimSpace(parts[12]) != ""},
 	}, nil
 }
 
@@ -273,7 +317,6 @@ func ParseDMSCoord(s string) (float64, error) {
 	return decimal, nil
 }
 
-
 // ComputeStats derives aggregate FlightStats from a parsed frame slice.
 // GPS jitter spikes (>50 m between consecutive frames) and implausible
 // instantaneous speeds (>50 m/s) are excluded from distance and speed
@@ -288,48 +331,59 @@ func ComputeStats(frames []Frame) FlightStats {
 		FrameCount: len(frames),
 		StartTime:  frames[0].GPSTime,
 		EndTime:    frames[len(frames)-1].GPSTime,
-		StartLat:   frames[0].Lat,
-		StartLon:   frames[0].Lon,
-		EndLat:     frames[len(frames)-1].Lat,
-		EndLon:     frames[len(frames)-1].Lon,
 		MaxAltASL:  -math.MaxFloat64,
 		MinAltASL:  math.MaxFloat64,
 		MaxAltAGL:  -math.MaxFloat64,
 		MinAltAGL:  math.MaxFloat64,
 	}
 
-	// Camera info from first valid frame.
-	s.ISO = frames[0].ISO
-	s.ShutterSpeed = frames[0].ShutterSpeed
-	s.FNumber = frames[0].FNumber
-	s.ColorTemp = frames[0].ColorTemperature
-
 	var gpsCount int
+	var aslCount, relativeCount int
 
 	// ── Per-frame stats (altitude, attitude, home distance) ─────────────
 	for i, f := range frames {
-		if f.Lat != 0 || f.Lon != 0 {
+		if !f.GPSTime.IsZero() {
+			if s.StartTime.IsZero() {
+				s.StartTime = f.GPSTime
+			}
+			s.EndTime = f.GPSTime
+		}
+		if s.ISO == 0 && f.ISO > 0 {
+			s.ISO = f.ISO
+		}
+		if s.ShutterSpeed == "" && f.ShutterSpeed != "" {
+			s.ShutterSpeed = f.ShutterSpeed
+		}
+		if s.FNumber == 0 && f.FNumber > 0 {
+			s.FNumber = f.FNumber
+		}
+		if s.ColorTemp == 0 && f.ColorTemperature > 0 {
+			s.ColorTemp = f.ColorTemperature
+		}
+		if ValidGPS(f.Lat, f.Lon) {
+			if gpsCount == 0 {
+				s.StartLat, s.StartLon = f.Lat, f.Lon
+			}
+			s.EndLat, s.EndLon = f.Lat, f.Lon
 			gpsCount++
 		}
 
-		if f.AltAbsolute > s.MaxAltASL {
-			s.MaxAltASL = f.AltAbsolute
+		if f.Available == nil || f.Available.AltASL {
+			aslCount++
+			if f.AltAbsolute > s.MaxAltASL {
+				s.MaxAltASL = f.AltAbsolute
+			}
+			if f.AltAbsolute < s.MinAltASL {
+				s.MinAltASL = f.AltAbsolute
+			}
 		}
-		if f.AltAbsolute < s.MinAltASL {
-			s.MinAltASL = f.AltAbsolute
-		}
-		if f.AltRelative > s.MaxAltAGL {
-			s.MaxAltAGL = f.AltRelative
-		}
-		if f.AltRelative < s.MinAltAGL {
-			s.MinAltAGL = f.AltRelative
-		}
-
-		// Max distance from home (takeoff point).
-		if s.StartLat != 0 || s.StartLon != 0 {
-			homeDist := geo.HaversineM(s.StartLat, s.StartLon, f.Lat, f.Lon)
-			if homeDist < geo.MaxGPSJitterM*20 && homeDist > s.MaxHomeDist {
-				s.MaxHomeDist = homeDist
+		if f.Available == nil || f.Available.AltRelative {
+			relativeCount++
+			if f.AltRelative > s.MaxAltAGL {
+				s.MaxAltAGL = f.AltRelative
+			}
+			if f.AltRelative < s.MinAltAGL {
+				s.MinAltAGL = f.AltRelative
 			}
 		}
 
@@ -350,7 +404,7 @@ func ComputeStats(frames []Frame) FlightStats {
 
 			// Altitude gain/loss and vertical speed.
 			dAlt := f.AltRelative - prev.AltRelative
-			if math.Abs(dAlt) < 50 { // ignore altitude jitter spikes
+			if (f.Available == nil || f.Available.AltRelative) && (prev.Available == nil || prev.Available.AltRelative) && math.Abs(dAlt) < 50*math.Max(1, dt) { // ignore altitude jitter spikes
 				if dAlt > 0 {
 					s.AltGainM += dAlt
 				} else {
@@ -374,10 +428,16 @@ func ComputeStats(frames []Frame) FlightStats {
 				dYaw += 360
 			}
 			yawRate := math.Abs(dYaw / dt)
-			if yawRate < 1000 && yawRate > s.MaxYawRate { // filter noise
+			if (f.Available == nil || f.Available.Attitude) && (prev.Available == nil || prev.Available.Attitude) && yawRate < 1000 && yawRate > s.MaxYawRate { // filter noise
 				s.MaxYawRate = yawRate
 			}
 		}
+	}
+	if aslCount == 0 {
+		s.MaxAltASL, s.MinAltASL = 0, 0
+	}
+	if relativeCount == 0 {
+		s.MaxAltAGL, s.MinAltAGL = 0, 0
 	}
 
 	// ── Distance and speed from ~1 Hz downsampled GPS ──────────────────
@@ -390,7 +450,7 @@ func ComputeStats(frames []Frame) FlightStats {
 	hasBucket := false
 
 	for _, f := range frames {
-		if f.Lat == 0 && f.Lon == 0 {
+		if !ValidGPS(f.Lat, f.Lon) {
 			continue
 		}
 		bucket := int(f.SampleTime.Seconds() / bucketSec)
@@ -402,9 +462,13 @@ func ComputeStats(frames []Frame) FlightStats {
 			dt := f.SampleTime.Seconds() - bucketFrame.SampleTime.Seconds()
 			if dt > 0 {
 				d := geo.HaversineM(bucketFrame.Lat, bucketFrame.Lon, f.Lat, f.Lon)
-				if d < geo.MaxGPSJitterM {
+				if d < geo.MaxGPSJitterM*math.Max(1, dt) {
 					spd := d / dt
 					if spd <= geo.MaxPlausibleSpeedMS {
+						homeDist := geo.HaversineM(s.StartLat, s.StartLon, f.Lat, f.Lon)
+						if homeDist > s.MaxHomeDist {
+							s.MaxHomeDist = homeDist
+						}
 						s.DistanceM += d
 						if spd > s.MaxSpeedMS {
 							s.MaxSpeedMS = spd

@@ -3,7 +3,7 @@
 // and real-time pipeline progress.
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import "charm.land/lipgloss/v2"
 
 // Cyberpunk colour palette — black, neon turquoise, greenish-blue, violet.
 var (
