@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -164,5 +165,9 @@ func TestMetadataReaderExactLimitAllowsEOFButRejectsNextByte(t *testing.T) {
 		if source == "12345" && !errors.Is(err, ErrAnalysisLimit) {
 			t.Fatalf("extra byte=%v", err)
 		}
+	}
+	ctx := WithAnalysisLimits(context.Background(), AnalysisLimits{MaxMetadataBytes: math.MaxInt64})
+	if data, err := io.ReadAll(AnalysisReader(ctx, strings.NewReader("1234"))); err != nil || string(data) != "1234" {
+		t.Fatalf("large positive byte limit failed: %q %v", data, err)
 	}
 }

@@ -139,7 +139,7 @@ func (r *analysisReader) Read(data []byte) (int, error) {
 	}
 	if b := budget(r.ctx); b != nil && b.limits.MaxMetadataBytes > 0 {
 		remaining := b.limits.MaxMetadataBytes - b.bytes
-		if int64(len(data)) > remaining+1 {
+		if remaining < int64(len(data)) && remaining+1 < int64(len(data)) {
 			data = data[:remaining+1]
 		}
 	}
