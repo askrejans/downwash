@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jung-kurt/gofpdf"
+	gofpdf "codeberg.org/go-pdf/fpdf"
 
 	"github.com/askrejans/downwash/internal/telemetry"
 )
@@ -24,10 +24,10 @@ type tableRow struct{ k, v string }
 
 // colour palette (RGB 0–255)
 var (
-	colHeaderBg = [3]int{18, 18, 28}   // near-black
-	colAccent   = [3]int{77, 166, 255} // sky blue
-	colRowLight = [3]int{28, 28, 42}   // dark row
-	colRowDark  = [3]int{22, 22, 35}   // slightly darker row
+	colHeaderBg = [3]int{18, 18, 28}    // near-black
+	colAccent   = [3]int{77, 166, 255}  // sky blue
+	colRowLight = [3]int{28, 28, 42}    // dark row
+	colRowDark  = [3]int{22, 22, 35}    // slightly darker row
 	colText     = [3]int{200, 200, 220} // body text
 	colSubhead  = [3]int{150, 180, 255} // section subheading
 )
@@ -120,7 +120,7 @@ func drawCoverPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, videoName, cod
 		{"DURATION", formatDuration(stats.Duration)},
 		{"DISTANCE", fmt.Sprintf("%.0f m  /  %.2f km", stats.DistanceM, stats.DistanceM/1000)},
 		{"MAX ALT (ASL)", fmt.Sprintf("%.1f m", stats.MaxAltASL)},
-		{"MAX ALT (AGL)", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
+		{"MAX ALT (TAKEOFF)", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
 		{"MAX SPEED", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.MaxSpeedMS, stats.MaxSpeedMS*3.6)},
 		{"AVG SPEED", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.AvgSpeedMS, stats.AvgSpeedMS*3.6)},
 		{"MAX FROM HOME", fmt.Sprintf("%.0f m", stats.MaxHomeDist)},
@@ -129,7 +129,7 @@ func drawCoverPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, videoName, cod
 
 	labelW := 48.0
 	valW := 60.0
-	for i, r := range rows {
+	for i, r := range measuredRows(stats, rows) {
 		y := colY + float64(i)*rowH
 		if i%2 == 0 {
 			setFill(pdf, colRowLight)
@@ -156,9 +156,9 @@ func drawCoverPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, videoName, cod
 	pdf.SetFont("Helvetica", "B", 8)
 	setTextColor(pdf, colSubhead)
 	pdf.SetXY(colX, posY)
-	pdf.CellFormat(labelW+valW, 6, "START  "+coordStr(stats.StartLat, stats.StartLon), "", 1, "L", false, 0, "")
+	pdf.CellFormat(labelW+valW, 6, "START  "+measuredValue(stats, "Position", coordStr(stats.StartLat, stats.StartLon)), "", 1, "L", false, 0, "")
 	pdf.SetXY(colX, posY+7)
-	pdf.CellFormat(labelW+valW, 6, "END    "+coordStr(stats.EndLat, stats.EndLon), "", 1, "L", false, 0, "")
+	pdf.CellFormat(labelW+valW, 6, "END    "+measuredValue(stats, "Position", coordStr(stats.EndLat, stats.EndLon)), "", 1, "L", false, 0, "")
 
 	// ── Track image (right side) ─────────────────────────────────────────────
 	if trackPNG != "" {
@@ -190,7 +190,7 @@ func drawAltitudePage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, altitudePNG
 	// Stats strip.
 	strip := []tableRow{
 		{"ASL MAX", fmt.Sprintf("%.1f m", stats.MaxAltASL)},
-		{"AGL MAX", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
+		{"TAKEOFF MAX", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
 		{"MAX SPEED", fmt.Sprintf("%.0f km/h", stats.MaxSpeedMS*3.6)},
 		{"AVG SPEED", fmt.Sprintf("%.0f km/h", stats.AvgSpeedMS*3.6)},
 		{"DURATION", formatDuration(stats.Duration)},
@@ -198,7 +198,7 @@ func drawAltitudePage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, altitudePNG
 	stripX := pdfMargin
 	stripY := 15.0
 	stripW := (w - pdfMargin*2) / float64(len(strip))
-	for i, item := range strip {
+	for i, item := range measuredRows(stats, strip) {
 		if i%2 == 0 {
 			setFill(pdf, colRowLight)
 		} else {
@@ -245,14 +245,14 @@ func drawDynamicsPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, totalPages 
 		{"Max Altitude ASL", fmt.Sprintf("%.1f m", stats.MaxAltASL)},
 		{"Min Altitude ASL", fmt.Sprintf("%.1f m", stats.MinAltASL)},
 		{"Altitude Range ASL", fmt.Sprintf("%.1f m", stats.MaxAltASL-stats.MinAltASL)},
-		{"Max Altitude AGL", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
-		{"Min Altitude AGL", fmt.Sprintf("%.1f m", stats.MinAltAGL)},
+		{"Max Altitude from takeoff", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
+		{"Min Altitude from takeoff", fmt.Sprintf("%.1f m", stats.MinAltAGL)},
 		{"Total Climb", fmt.Sprintf("%.0f m", stats.AltGainM)},
 		{"Total Descent", fmt.Sprintf("%.0f m", stats.AltLossM)},
 		{"Max Climb Rate", fmt.Sprintf("%.1f m/s", stats.MaxClimbMS)},
 		{"Max Descent Rate", fmt.Sprintf("%.1f m/s", stats.MaxDescentMS)},
 	}
-	y = drawKVTable(pdf, altRows, y+1)
+	y = drawKVTable(pdf, measuredRows(stats, altRows), y+1)
 
 	y += 6
 	y = drawSectionHeader(pdf, "ATTITUDE & ORIENTATION", y)
@@ -261,7 +261,7 @@ func drawDynamicsPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, totalPages 
 		{"Max Pitch", fmt.Sprintf("%.1f\xb0", stats.MaxPitch)},
 		{"Max Yaw Rate", fmt.Sprintf("%.1f\xb0/s", stats.MaxYawRate)},
 	}
-	y = drawKVTable(pdf, attRows, y+1)
+	y = drawKVTable(pdf, measuredRows(stats, attRows), y+1)
 
 	y += 6
 	y = drawSectionHeader(pdf, "RANGE & DISTANCE", y)
@@ -271,7 +271,7 @@ func drawDynamicsPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, totalPages 
 		{"Max Speed", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.MaxSpeedMS, stats.MaxSpeedMS*3.6)},
 		{"Avg Speed", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.AvgSpeedMS, stats.AvgSpeedMS*3.6)},
 	}
-	y = drawKVTable(pdf, rngRows, y+1)
+	y = drawKVTable(pdf, measuredRows(stats, rngRows), y+1)
 	_ = y
 
 	drawFooter(pdf, 3, totalPages)
@@ -302,7 +302,7 @@ func drawDetailPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, codec string,
 		{"f-number", fmt.Sprintf("f/%.1f", stats.FNumber)},
 		{"Color Temperature", fmt.Sprintf("%d K", stats.ColorTemp)},
 	}
-	y = drawKVTable(pdf, camRows, y+1)
+	y = drawKVTable(pdf, measuredRows(stats, camRows), y+1)
 
 	y += 6
 	y = drawSectionHeader(pdf, "GPS & NAVIGATION", y)
@@ -313,7 +313,7 @@ func drawDetailPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, codec string,
 		{"GPS Points", fmt.Sprintf("%d", stats.GPSPointCount)},
 		{"Frame Count", fmt.Sprintf("%d", stats.FrameCount)},
 	}
-	y = drawKVTable(pdf, gpsRows, y+1)
+	y = drawKVTable(pdf, measuredRows(stats, gpsRows), y+1)
 
 	y += 6
 	y = drawSectionHeader(pdf, "PERFORMANCE", y)
@@ -322,10 +322,10 @@ func drawDetailPage(pdf *gofpdf.Fpdf, stats telemetry.FlightStats, codec string,
 		{"Avg Speed", fmt.Sprintf("%.1f m/s  (%.1f km/h)", stats.AvgSpeedMS, stats.AvgSpeedMS*3.6)},
 		{"Max Alt ASL", fmt.Sprintf("%.1f m", stats.MaxAltASL)},
 		{"Min Alt ASL", fmt.Sprintf("%.1f m", stats.MinAltASL)},
-		{"Max Alt AGL", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
-		{"Min Alt AGL", fmt.Sprintf("%.1f m", stats.MinAltAGL)},
+		{"Max Alt from takeoff", fmt.Sprintf("%.1f m", stats.MaxAltAGL)},
+		{"Min Alt from takeoff", fmt.Sprintf("%.1f m", stats.MinAltAGL)},
 	}
-	y = drawKVTable(pdf, perfRows, y+1)
+	y = drawKVTable(pdf, measuredRows(stats, perfRows), y+1)
 
 	// Disclaimer.
 	pdf.SetFont("Helvetica", "I", 7)

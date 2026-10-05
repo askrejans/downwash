@@ -4,11 +4,12 @@
 package pipeline
 
 import (
-	"context"
-	"fmt"
-	"log/slog"
 	"archive/zip"
+	"context"
+	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,12 +161,19 @@ type Result struct {
 // All output file names are derived from the input file's base name using
 // standard suffixes (e.g. "_track.gpx", "_altitude.png", "_briefing.pdf").
 func Run(ctx context.Context, opts Options) (Result, error) {
+	if opts.StartOffsetMS < 0 || opts.EndTrimMS < 0 {
+		return Result{}, fmt.Errorf("pipeline: trim offsets must be nonnegative")
+	}
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
 	}
 
+	var stepErrors []error
 	notify := func(step StepName, status StepStatus, msg string) {
+		if status == StepFailed && step != StepCodec && step != StepTelemetry {
+			stepErrors = append(stepErrors, fmt.Errorf("pipeline: %s: %s", step, msg))
+		}
 		if opts.OnProgress != nil {
 			opts.OnProgress(step, status, msg)
 		}
@@ -197,8 +205,9 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		var err error
 		frames, err = telemetry.Extract(ctx, opts.InputPath, logger)
 		if err != nil {
-			logger.Warn("telemetry extraction failed (skipping)", "err", err)
+			logger.Warn("telemetry extraction failed", "err", err)
 			notify(StepTelemetry, StepFailed, err.Error())
+			return Result{}, fmt.Errorf("pipeline: extract telemetry: %w", err)
 		} else {
 			notify(StepTelemetry, StepDone, fmt.Sprintf("%d frames", len(frames)))
 		}
@@ -216,6 +225,9 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if len(frames) > 0 && (opts.StartOffsetMS > 0 || opts.EndTrimMS > 0) {
 		before := len(frames)
 		frames = trimFrames(frames, opts.StartOffsetMS, opts.EndTrimMS)
+		if len(frames) == 0 {
+			return Result{}, fmt.Errorf("pipeline: trim window contains no telemetry")
+		}
 		logger.Info("time trim applied",
 			"before", before, "after", len(frames),
 			"start_offset_ms", opts.StartOffsetMS,
@@ -437,7 +449,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		notify(StepTranscode, StepDone, transPath)
 	}
 
-	return res, nil
+	return res, errors.Join(stepErrors...)
 }
 
 // stem returns the filename without its directory and extension.
@@ -464,22 +476,25 @@ func collectOutputFiles(r Result) []string {
 
 // createZip bundles the listed files into a ZIP archive at zipPath.
 // Each file is stored with its base name only (no directory structure).
-func createZip(zipPath string, files []string) error {
+func createZip(zipPath string, files []string) (err error) {
 	f, err := os.Create(zipPath)
 	if err != nil {
 		return fmt.Errorf("pipeline: create zip: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+	}()
 
 	zw := zip.NewWriter(f)
-	defer zw.Close()
 
 	for _, src := range files {
 		if err := addFileToZip(zw, src); err != nil {
 			return fmt.Errorf("pipeline: zip add %s: %w", filepath.Base(src), err)
 		}
 	}
-	return nil
+	return zw.Close()
 }
 
 // addFileToZip copies a single file into the ZIP writer using its base name.
@@ -522,7 +537,7 @@ func trimFrames(frames []telemetry.Frame, startOffsetMS, endTrimMS int) []teleme
 	totalDur := frames[len(frames)-1].SampleTime
 	endCut := totalDur - time.Duration(endTrimMS)*time.Millisecond
 
-	if endCut <= startCut {
+	if endCut < startCut {
 		return nil
 	}
 

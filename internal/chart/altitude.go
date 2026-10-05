@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"math"
 	"os"
 
 	"gonum.org/v1/plot"
@@ -87,8 +88,12 @@ func buildAltPts(frames []telemetry.Frame) (asl, agl plotter.XYs) {
 		}
 		lastBucket = bucket
 		t := f.SampleTime.Seconds()
-		asl = append(asl, plotter.XY{X: t, Y: f.AltAbsolute})
-		agl = append(agl, plotter.XY{X: t, Y: f.AltRelative})
+		if f.Available == nil || f.Available.AltASL {
+			asl = append(asl, plotter.XY{X: t, Y: f.AltAbsolute})
+		}
+		if f.Available == nil || f.Available.AltRelative {
+			agl = append(agl, plotter.XY{X: t, Y: f.AltRelative})
+		}
 	}
 	return
 }
@@ -104,7 +109,7 @@ func buildSpeedPts(frames []telemetry.Frame) plotter.XYs {
 	hasBucket := false
 
 	for _, f := range frames {
-		if f.Lat == 0 && f.Lon == 0 {
+		if !telemetry.ValidGPS(f.Lat, f.Lon) {
 			continue
 		}
 		bucket := int(f.SampleTime.Seconds() / bucketSec)
@@ -116,7 +121,7 @@ func buildSpeedPts(frames []telemetry.Frame) plotter.XYs {
 			dt := f.SampleTime.Seconds() - bucketFrame.SampleTime.Seconds()
 			if dt > 0 {
 				d := geo.HaversineM(bucketFrame.Lat, bucketFrame.Lon, f.Lat, f.Lon)
-				if d < geo.MaxGPSJitterM {
+				if d < geo.MaxGPSJitterM*math.Max(1, dt) {
 					spd := d / dt // m/s
 					if spd <= geo.MaxPlausibleSpeedMS {
 						pts = append(pts, plotter.XY{X: f.SampleTime.Seconds(), Y: spd * 3.6}) // km/h

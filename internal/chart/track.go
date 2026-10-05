@@ -33,6 +33,16 @@ const trackSize = 800
 // Points are downsampled and jitter-filtered, matching the GPX writer logic.
 // outputPath must end in ".png".
 func FlightTrack(frames []telemetry.Frame, title, outputPath string) error {
+	return flightTrack(frames, title, outputPath, true)
+}
+
+// FlightTrackOffline renders a flight track without requesting map tiles or
+// transmitting flight coordinates to a tile provider.
+func FlightTrackOffline(frames []telemetry.Frame, title, outputPath string) error {
+	return flightTrack(frames, title, outputPath, false)
+}
+
+func flightTrack(frames []telemetry.Frame, title, outputPath string, mapTiles bool) error {
 	pts := buildTrackPts(frames)
 	if len(pts) == 0 {
 		return fmt.Errorf("chart: no GPS points for flight track")
@@ -56,7 +66,10 @@ func FlightTrack(frames []telemetry.Frame, title, outputPath string) error {
 	maxLon += lonPad
 
 	// Try to fetch dark OSM map tiles as background.
-	mapBg := fetchMapBackground(minLat, maxLat, minLon, maxLon, trackSize, trackSize)
+	var mapBg image.Image
+	if mapTiles {
+		mapBg = fetchMapBackground(minLat, maxLat, minLon, maxLon, trackSize, trackSize)
+	}
 
 	if mapBg != nil {
 		return renderTrackOnMap(mapBg, pts, minLat, maxLat, minLon, maxLon, title, outputPath)
@@ -308,8 +321,9 @@ func buildTrackPts(frames []telemetry.Frame) plotter.XYs {
 
 	lastBucket := -1
 	var pts plotter.XYs
+	var previousTime float64
 	for _, f := range frames {
-		if f.Lat == 0 && f.Lon == 0 {
+		if !telemetry.ValidGPS(f.Lat, f.Lon) {
 			continue
 		}
 		bucket := int(f.SampleTime.Seconds() / bucketSec)
@@ -321,11 +335,13 @@ func buildTrackPts(frames []telemetry.Frame) plotter.XYs {
 		if len(pts) > 0 {
 			prev := pts[len(pts)-1]
 			d := geo.HaversineM(prev.Y, prev.X, f.Lat, f.Lon) // Y=lat, X=lon
-			if d > geo.MaxGPSJitterM {
+			dt := f.SampleTime.Seconds() - previousTime
+			if d > geo.MaxGPSJitterM*math.Max(1, dt) {
 				continue
 			}
 		}
 		pts = append(pts, plotter.XY{X: f.Lon, Y: f.Lat})
+		previousTime = f.SampleTime.Seconds()
 	}
 	return pts
 }

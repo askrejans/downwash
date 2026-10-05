@@ -167,3 +167,33 @@ func TestFormatDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestReportsDistinguishMissingFromMeasuredZero(t *testing.T) {
+	stats := telemetry.ComputeStats([]telemetry.Frame{{ISO: 100, Available: &telemetry.Availability{Camera: true}}})
+	path := filepath.Join(t.TempDir(), "report.md")
+	if err := Markdown(stats, "camera", "", ""+path); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "| **Max Altitude ASL** | N/A |") || !strings.Contains(string(data), "| **Start Position** | N/A |") {
+		t.Fatalf("unrecorded fields were shown as measurements: %s", data)
+	}
+	rows := measuredRows(stats, []tableRow{{"MAX ALT (ASL)", "0.0 m"}, {"Shutter Speed", ""}, {"ISO", "100"}})
+	if rows[0].v != "N/A" || rows[1].v != "N/A" || rows[2].v != "100" {
+		t.Fatalf("incorrect PDF rows: %+v", rows)
+	}
+	stats = telemetry.ComputeStats([]telemetry.Frame{{AltAbsolute: 0, Available: &telemetry.Availability{AltASL: true}}})
+	if measuredValue(stats, "MAX ALT (ASL)", "0.0 m") != "0.0 m" {
+		t.Fatal("measured sea-level altitude was hidden")
+	}
+}
+func TestMarkdownSouthernWesternCoordinates(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.md")
+	if err := Markdown(telemetry.FlightStats{StartLat: -33.1, StartLon: -70.2}, "flight", "", path); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "-33.100000N") || !strings.Contains(string(data), "-33.100000°, -70.200000°") {
+		t.Fatal("incorrect coordinate hemisphere")
+	}
+}

@@ -5,7 +5,9 @@ package gpx
 import (
 	"encoding/xml"
 	"fmt"
+	"math"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/askrejans/downwash/internal/geo"
@@ -35,9 +37,9 @@ type gpxDoc struct {
 }
 
 type metadata struct {
-	Name string    `xml:"name,omitempty"`
-	Desc string    `xml:"desc,omitempty"`
-	Time time.Time `xml:"time,omitempty"`
+	Name string     `xml:"name,omitempty"`
+	Desc string     `xml:"desc,omitempty"`
+	Time *time.Time `xml:"time,omitempty"`
 }
 
 type track struct {
@@ -50,11 +52,11 @@ type trackSeg struct {
 }
 
 type trackPoint struct {
-	Lat  float64   `xml:"lat,attr"`
-	Lon  float64   `xml:"lon,attr"`
-	Ele  float64   `xml:"ele,omitempty"`
-	Time time.Time `xml:"time,omitempty"`
-	Desc string    `xml:"desc,omitempty"`
+	Lat  float64    `xml:"lat,attr"`
+	Lon  float64    `xml:"lon,attr"`
+	Ele  *float64   `xml:"ele,omitempty"`
+	Time *time.Time `xml:"time,omitempty"`
+	Desc string     `xml:"desc,omitempty"`
 }
 
 // ---------- public API -------------------------------------------------------
@@ -115,6 +117,9 @@ func buildPoints(frames []telemetry.Frame) []trackPoint {
 	var sampled []telemetry.Frame
 	lastBucket := -1
 	for _, f := range frames {
+		if !telemetry.ValidGPS(f.Lat, f.Lon) {
+			continue
+		}
 		bucket := int(f.SampleTime.Seconds() / (1.0 / targetHz))
 		if bucket != lastBucket {
 			lastBucket = bucket
@@ -123,8 +128,9 @@ func buildPoints(frames []telemetry.Frame) []trackPoint {
 	}
 
 	var pts []trackPoint
+	var previousTime time.Duration
 	for _, f := range sampled {
-		if f.Lat == 0 && f.Lon == 0 {
+		if !telemetry.ValidGPS(f.Lat, f.Lon) {
 			continue // no GPS fix
 		}
 
@@ -132,22 +138,33 @@ func buildPoints(frames []telemetry.Frame) []trackPoint {
 		if len(pts) > 0 {
 			prev := pts[len(pts)-1]
 			d := geo.HaversineM(prev.Lat, prev.Lon, f.Lat, f.Lon)
-			if d > geo.MaxGPSJitterM {
+			dt := (f.SampleTime - previousTime).Seconds()
+			if d > geo.MaxGPSJitterM*math.Max(1, dt) {
 				continue
 			}
 		}
+		var description []string
+		if f.Available == nil || f.Available.AltRelative {
+			description = append(description, fmt.Sprintf("AGL %.1fm", f.AltRelative))
+		}
+		if f.Available == nil || f.Available.Attitude {
+			description = append(description, fmt.Sprintf("Roll %.1f° Pitch %.1f° Yaw %.1f°", f.Roll, f.Pitch, f.Yaw))
+		}
 		pt := trackPoint{
-			Lat: geo.Round6(f.Lat),
-			Lon: geo.Round6(f.Lon),
-			Ele: geo.Round2(f.AltAbsolute),
-			Desc: fmt.Sprintf("AGL %.1fm | Roll %.1f° Pitch %.1f° Yaw %.1f°",
-				f.AltRelative, f.Roll, f.Pitch, f.Yaw),
+			Lat:  geo.Round6(f.Lat),
+			Lon:  geo.Round6(f.Lon),
+			Desc: strings.Join(description, " | "),
+		}
+		if f.Available == nil || f.Available.AltASL {
+			elevation := geo.Round2(f.AltAbsolute)
+			pt.Ele = &elevation
 		}
 		if !f.GPSTime.IsZero() {
-			pt.Time = f.GPSTime.UTC()
+			stamp := f.GPSTime.UTC()
+			pt.Time = &stamp
 		}
 		pts = append(pts, pt)
+		previousTime = f.SampleTime
 	}
 	return pts
 }
-

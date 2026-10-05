@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/askrejans/downwash/internal/pipeline"
 )
@@ -229,7 +229,7 @@ func TestModelViewOptions(t *testing.T) {
 		Version:  "0.1.0",
 		FilePath: "/tmp/test.mp4",
 	})
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "v0.1.0") {
 		t.Error("view missing version")
 	}
@@ -251,7 +251,7 @@ func TestModelViewDone(t *testing.T) {
 		GPXPath:      "/tmp/test_track.gpx",
 		MarkdownPath: "/tmp/test_report.md",
 	}
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "test_track.gpx") {
 		t.Error("done view missing GPX path")
 	}
@@ -264,7 +264,7 @@ func TestModelViewDoneWithError(t *testing.T) {
 	m := New(Config{Version: "0.1.0", FilePath: "/tmp/test.mp4"})
 	m.state = stateDone
 	m.err = fmt.Errorf("something broke")
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "something broke") {
 		t.Error("done view missing error message")
 	}
@@ -272,7 +272,7 @@ func TestModelViewDoneWithError(t *testing.T) {
 
 func TestModelViewFilePicker(t *testing.T) {
 	m := New(Config{Version: "0.1.0"})
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "Select") {
 		t.Error("file picker view missing Select prompt")
 	}
@@ -303,7 +303,7 @@ func TestFilePickerView(t *testing.T) {
 
 func TestFilePickerSelectDir(t *testing.T) {
 	fp := newFilePickerModel("/tmp")
-	fp, _ = fp.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	fp, _ = fp.update(tea.KeyPressMsg{Code: 's', Text: string('s')})
 	if !fp.isDir {
 		t.Error("pressing 's' should set isDir")
 	}
@@ -334,12 +334,12 @@ func TestOptionsModelToggle(t *testing.T) {
 	m := newOptionsModel("/tmp/test.mp4", false)
 
 	// Toggle GPX off (cursor is at 0 = gpx).
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	m, _ = m.update(tea.KeyPressMsg{Code: ' ', Text: string(' ')})
 	if m.produceGPX {
 		t.Error("GPX should be toggled off")
 	}
 	// Toggle back on.
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	m, _ = m.update(tea.KeyPressMsg{Code: ' ', Text: string(' ')})
 	if !m.produceGPX {
 		t.Error("GPX should be toggled back on")
 	}
@@ -352,13 +352,13 @@ func TestOptionsModelNavigation(t *testing.T) {
 	}
 
 	// Move down to charts.
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.cursor != 1 {
 		t.Errorf("cursor should be 1 after down, got %d", m.cursor)
 	}
 
 	// Move up back to gpx.
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyUp})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.cursor != 0 {
 		t.Errorf("cursor should be 0 after up, got %d", m.cursor)
 	}
@@ -376,7 +376,7 @@ func TestOptionsModelTranscodeSubOptions(t *testing.T) {
 	}
 
 	// Enable transcode.
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	m, _ = m.update(tea.KeyPressMsg{Code: ' ', Text: string(' ')})
 	if !m.transcode {
 		t.Error("transcode should be enabled")
 	}
@@ -411,12 +411,12 @@ func TestOptionsModelCycleCodec(t *testing.T) {
 		t.Errorf("default codec should be h264, got %s", codecChoices[m.transcodeCodec])
 	}
 
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRight})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyRight})
 	if codecChoices[m.transcodeCodec] != "h265" {
 		t.Errorf("after right, codec should be h265, got %s", codecChoices[m.transcodeCodec])
 	}
 
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyLeft})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyLeft})
 	if codecChoices[m.transcodeCodec] != "h264" {
 		t.Errorf("after left, codec should be h264, got %s", codecChoices[m.transcodeCodec])
 	}
@@ -461,7 +461,7 @@ func TestOptionsModelToggleMetadata(t *testing.T) {
 			break
 		}
 	}
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	m, _ = m.update(tea.KeyPressMsg{Code: ' ', Text: string(' ')})
 	if m.produceMetadata {
 		t.Error("metadata should be toggled off")
 	}
@@ -476,7 +476,7 @@ func TestOptionsModelToggleZip(t *testing.T) {
 			break
 		}
 	}
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	m, _ = m.update(tea.KeyPressMsg{Code: ' ', Text: string(' ')})
 	if !m.zipOutput {
 		t.Error("zip should be toggled on")
 	}
@@ -492,7 +492,7 @@ func TestOptionsModelConfirm(t *testing.T) {
 			break
 		}
 	}
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if !m.confirmed {
 		t.Error("pressing enter on start should confirm")
 	}
@@ -500,7 +500,7 @@ func TestOptionsModelConfirm(t *testing.T) {
 
 func TestOptionsModelCancel(t *testing.T) {
 	m := newOptionsModel("/tmp/test.mp4", false)
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyEsc})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if !m.cancelled {
 		t.Error("pressing esc should cancel")
 	}
@@ -540,21 +540,21 @@ func TestOptionsModelTimeTrim(t *testing.T) {
 	}
 
 	// Enter editing mode.
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.editingField != "startOffset" {
 		t.Error("should be editing startOffset")
 	}
 
 	// Type "500".
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'5'}})
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}})
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'0'}})
+	m, _ = m.update(tea.KeyPressMsg{Code: '5', Text: string('5')})
+	m, _ = m.update(tea.KeyPressMsg{Code: '0', Text: string('0')})
+	m, _ = m.update(tea.KeyPressMsg{Code: '0', Text: string('0')})
 	if m.startOffsetMS != "500" {
 		t.Errorf("startOffsetMS = %q, want 500", m.startOffsetMS)
 	}
 
 	// Confirm editing.
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.editingField != "" {
 		t.Error("should stop editing after enter")
 	}
@@ -571,13 +571,13 @@ func TestOptionsModelTimeTrimBackspace(t *testing.T) {
 	m.editingField = "startOffset"
 	m.startOffsetMS = "123"
 
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyBackspace})
 	if m.startOffsetMS != "12" {
 		t.Errorf("after backspace: %q, want 12", m.startOffsetMS)
 	}
 
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyBackspace})
-	m, _ = m.update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	m, _ = m.update(tea.KeyPressMsg{Code: tea.KeyBackspace})
 	if m.startOffsetMS != "0" {
 		t.Errorf("after all backspace: %q, want 0", m.startOffsetMS)
 	}

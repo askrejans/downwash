@@ -10,14 +10,14 @@ post-flight analysis packages: GPX tracks, PNG charts (altitude + speed),
 Markdown reports, metadata JSON exports, and PDF briefings.
 
 Module: `github.com/askrejans/downwash`
-Go version: 1.21+
+Go version: 1.27.1+
 Entry point: `cmd/downwash/main.go`
 
 ## Package structure
 
 | Package | Responsibility |
 |---|---|
-| `internal/telemetry` | exiftool invocation, CSV line parsing, `Frame` / `FlightStats` types |
+| `internal/telemetry` | Native MP4/djmd and SRT parsing, CLI exiftool fallback, `Frame` / `FlightStats` types |
 | `internal/ffmpeg` | `ffmpeg` transcode, `ffprobe` codec detection, typed `TranscodeError` |
 | `internal/geo` | Shared geodesy: `HaversineM`, coordinate rounding, `MaxGPSJitterM` constant |
 | `internal/gpx` | GPX 1.1 XML writer, ~1 Hz downsampling, jitter filter |
@@ -26,6 +26,7 @@ Entry point: `cmd/downwash/main.go`
 | `internal/pipeline` | Orchestrates all steps for a single video file; progress callback API |
 | `internal/tui` | Bubble Tea interactive terminal UI: file picker, progress view, result display |
 | `cmd/downwash` | cobra CLI: `process`, `batch`, `version` sub-commands; TUI launcher |
+| root `downwash` package | Offline public Go API and string-only JSON bridge; see `docs/library.md` |
 | `samples` | `//go:build ignore` generator producing synthetic sample artefacts |
 
 ## Key types
@@ -185,9 +186,9 @@ The interactive terminal UI lives in `internal/tui` and uses
 
 | Module | Purpose |
 |---|---|
-| `github.com/charmbracelet/bubbletea` | Terminal UI framework |
-| `github.com/charmbracelet/bubbles` | Spinner, filepicker components |
-| `github.com/charmbracelet/lipgloss` | Styled terminal rendering |
+| `charm.land/bubbletea/v2` | Terminal UI framework |
+| `charm.land/bubbles/v2` | Spinner, filepicker components |
+| `charm.land/lipgloss/v2` | Styled terminal rendering |
 | `golang.org/x/term` | TTY detection (`term.IsTerminal`) |
 
 ## OSM map tiles

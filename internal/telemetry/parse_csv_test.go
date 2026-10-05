@@ -39,6 +39,9 @@ func TestParseCSVLineValid(t *testing.T) {
 	if math.Abs(f.SampleTime.Seconds()-0.03) > 0.001 {
 		t.Errorf("SampleTime = %v, want 0.03s", f.SampleTime)
 	}
+	if f.GPSTime.Format("2006-01-02T15:04:05Z") != "2025-06-15T10:00:01Z" {
+		t.Errorf("GPSTime = %v, want UTC timestamp from exiftool", f.GPSTime)
+	}
 	if math.Abs(f.Lat-57.165742) > 0.001 {
 		t.Errorf("Lat = %v, want ~57.165742", f.Lat)
 	}
