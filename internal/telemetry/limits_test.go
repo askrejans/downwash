@@ -155,6 +155,15 @@ func TestSRTCancellationAndSubtitleFieldLimit(t *testing.T) {
 	}
 }
 
+func TestSRTFrameLimitCountsTelemetryAndIgnoresOrdinaryCaptions(t *testing.T) {
+	text := "1\n00:00:00,000 --> 00:00:01,000\n[latitude: 57 longitude: 24]\n\n2\n00:00:01,000 --> 00:00:02,000\nClosing caption without telemetry\n"
+	ctx := WithAnalysisLimits(context.Background(), AnalysisLimits{MaxFrames: 1, MaxMetadataBytes: int64(len(text))})
+	frames, err := ParseSRTContext(ctx, strings.NewReader(text))
+	if err != nil || len(frames) != 1 {
+		t.Fatalf("ordinary caption consumed the frame limit: %v frames=%d", err, len(frames))
+	}
+}
+
 func TestMetadataReaderExactLimitAllowsEOFButRejectsNextByte(t *testing.T) {
 	for _, source := range []string{"1234", "12345"} {
 		ctx := WithAnalysisLimits(context.Background(), AnalysisLimits{MaxMetadataBytes: 4})

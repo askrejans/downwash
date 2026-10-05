@@ -65,7 +65,7 @@ func parseSRT(ctx context.Context, r io.Reader, countBytes bool) ([]Frame, error
 		if !hasStamp || subtitleErr != nil {
 			return
 		}
-		if err := CheckFrameCount(ctx, len(frames)+1); err != nil {
+		if err := ctx.Err(); err != nil {
 			subtitleErr = err
 			return
 		}
@@ -186,6 +186,10 @@ func parseSRT(ctx context.Context, r io.Reader, countBytes bool) ([]Frame, error
 			f.Additional["srt_"+key] = value
 		}
 		if subtitleErr == nil {
+			if err := CheckFrameCount(ctx, len(frames)+1); err != nil {
+				subtitleErr = err
+				return
+			}
 			frames = append(frames, f)
 		}
 	}
