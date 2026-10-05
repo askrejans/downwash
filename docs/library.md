@@ -18,6 +18,29 @@ response, err = downwash.Process(ctx, downwash.Request{
 provide a string-only integration boundary. A caller can wrap these functions
 in the platform's preferred binding mechanism. The core requires no CGO.
 
+## Bounded and cancellable analysis
+
+`AnalyzeWithLimits` accepts optional resource limits for callers with a smaller
+memory budget. Zero values leave the corresponding resource unrestricted;
+`Analyze` keeps its existing limits and output schema.
+
+```go
+response, err := downwash.AnalyzeWithLimits(ctx, "/flights/DJI_0001.MP4",
+    downwash.AnalysisLimits{MaxFrames: 6000, MaxMetadataBytes: 4 << 20})
+```
+
+The byte limit covers MP4 movie metadata plus the extracted telemetry samples,
+or the entire SRT/metadata JSON source. Encoded video media does not count against
+it. Limits are checked before movie metadata, sample tables, protobuf maps and
+frame slices grow. The frame limit also bounds individual metadata containers
+to `MaxFrames + 64` entries and structured metadata nesting to 64 levels.
+
+Cancel the supplied context to stop reads, decoding and frame processing.
+Use `errors.Is(err, downwash.ErrAnalysisLimit)` for a resource limit and
+`errors.Is(err, context.Canceled)` for cancellation. The optional
+`AnalyzeWithLimitsJSON` bridge returns the same response with `error_code` set
+to `resource_limit` or `cancelled` when applicable.
+
 ## Source coverage
 
 MP4, MOV and LRF use the ISO BMFF sample tables and DJI `djmd` protobuf stream,

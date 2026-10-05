@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"context"
 	"math"
 	"strings"
 	"unicode/utf8"
@@ -9,9 +10,13 @@ import (
 // Additional documented DJI fields retain their native meaning and units.
 // Paths come from ExifTool's public DJI tag reference; unknown fields are ignored.
 func djiAdditional(data []byte, protocol string) (map[string]any, error) {
+	return djiAdditionalContext(context.Background(), data, protocol)
+}
+
+func djiAdditionalContext(ctx context.Context, data []byte, protocol string) (map[string]any, error) {
 	values := map[string]any{}
 	addNumber := func(name string, path ...uint64) error {
-		v, err := protoAt(data, path...)
+		v, err := protoAtContext(ctx, data, path...)
 		if err != nil {
 			return err
 		}
@@ -22,7 +27,7 @@ func djiAdditional(data []byte, protocol string) (map[string]any, error) {
 		return nil
 	}
 	addString := func(name string, path ...uint64) error {
-		v, err := protoAt(data, path...)
+		v, err := protoAtContext(ctx, data, path...)
 		if err != nil {
 			return err
 		}

@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -26,6 +27,17 @@ var (
 // "longtitude" spelling and documented longitude/latitude legacy GPS tuples.
 // Ordinary subtitles are rejected.
 func ParseSRT(r io.Reader) ([]Frame, error) {
+	return ParseSRTContext(context.Background(), r)
+}
+
+func ParseSRTContext(ctx context.Context, r io.Reader) ([]Frame, error) {
+	return parseSRT(ctx, r, true)
+}
+
+func parseSRT(ctx context.Context, r io.Reader, countBytes bool) ([]Frame, error) {
+	if countBytes {
+		r = AnalysisReader(ctx, r)
+	}
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 4096), 1<<20)
 	var frames []Frame
@@ -33,16 +45,36 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 	var text strings.Builder
 	hasStamp := false
 	var subtitleErr error
+	matches := func(pattern *regexp.Regexp) [][]string {
+		if err := ctx.Err(); err != nil {
+			subtitleErr = err
+			return nil
+		}
+		count := -1
+		if b := budget(ctx); b != nil && b.limits.MaxFrames > 0 {
+			count = b.limits.MaxFrames + 65
+		}
+		found := pattern.FindAllStringSubmatch(text.String(), count)
+		if count > 0 && len(found) >= count {
+			subtitleErr = fmt.Errorf("%w: subtitle fields", ErrAnalysisLimit)
+			return nil
+		}
+		return found
+	}
 	flush := func() {
-		if !hasStamp {
+		if !hasStamp || subtitleErr != nil {
+			return
+		}
+		if err := CheckFrameCount(ctx, len(frames)+1); err != nil {
+			subtitleErr = err
 			return
 		}
 		values := make(map[string]string)
-		for _, match := range srtKeyRE.FindAllStringSubmatch(text.String(), -1) {
+		for _, match := range matches(srtKeyRE) {
 			values[strings.ToLower(match[1])] = match[2]
 		}
 		additional := map[string]any{}
-		for _, match := range srtLegacyRE.FindAllStringSubmatch(text.String(), -1) {
+		for _, match := range matches(srtLegacyRE) {
 			key, value := strings.ToUpper(match[1]), match[2]
 			switch key {
 			case "F/":
@@ -70,7 +102,7 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 				additional["exposure_compensation_ev"] = exposure
 			}
 		}
-		for _, match := range srtAnglesRE.FindAllStringSubmatch(text.String(), -1) {
+		for _, match := range matches(srtAnglesRE) {
 			if strings.ToUpper(match[1]) == "F" {
 				values["drone_pitch"], values["drone_roll"], values["drone_yaw"] = match[2], match[3], match[4]
 			} else {
@@ -139,7 +171,7 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 		if f.FNumber >= 100 {
 			f.FNumber /= 100 // older DJI subtitles encode f/1.7 as 170
 		}
-		for _, match := range srtExtraRE.FindAllStringSubmatch(text.String(), -1) {
+		for _, match := range matches(srtExtraRE) {
 			key := strings.ToLower(match[1])
 			if _, known := values[key]; known {
 				continue
@@ -153,12 +185,20 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 			}
 			f.Additional["srt_"+key] = value
 		}
-		frames = append(frames, f)
+		if subtitleErr == nil {
+			frames = append(frames, f)
+		}
 	}
 	for scanner.Scan() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		line := strings.TrimSpace(strings.TrimPrefix(scanner.Text(), "\ufeff"))
 		if match := srtTimeRE.FindStringSubmatch(line); match != nil {
 			flush()
+			if subtitleErr != nil {
+				return nil, subtitleErr
+			}
 			text.Reset()
 			h, hourErr := strconv.Atoi(match[1])
 			m, _ := strconv.Atoi(match[2])
@@ -188,6 +228,12 @@ func ParseSRT(r io.Reader) ([]Frame, error) {
 	if len(frames) == 0 {
 		return nil, fmt.Errorf("telemetry: no supported DJI bracketed telemetry in SRT file")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	sort.SliceStable(frames, func(i, j int) bool { return frames[i].SampleTime < frames[j].SampleTime })
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return frames, nil
 }

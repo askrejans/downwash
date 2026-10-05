@@ -31,9 +31,12 @@ type mp4Box struct {
 }
 
 // mp4Boxes validates every atom boundary before exposing its payload.
-func mp4Boxes(data []byte) ([]mp4Box, error) {
+func mp4Boxes(ctx context.Context, data []byte) ([]mp4Box, error) {
 	var boxes []mp4Box
 	for len(data) > 0 {
+		if err := checkTableCount(ctx, uint64(len(boxes)+1)); err != nil {
+			return nil, err
+		}
 		if len(data) < 8 {
 			return nil, fmt.Errorf("telemetry: truncated MP4 atom")
 		}
@@ -55,9 +58,9 @@ func mp4Boxes(data []byte) ([]mp4Box, error) {
 	return boxes, nil
 }
 
-func childBox(data []byte, path ...string) ([]byte, error) {
+func childBox(ctx context.Context, data []byte, path ...string) ([]byte, error) {
 	for _, kind := range path {
-		boxes, err := mp4Boxes(data)
+		boxes, err := mp4Boxes(ctx, data)
 		if err != nil {
 			return nil, err
 		}
@@ -90,6 +93,9 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 	}
 	var moov []byte
 	for pos := int64(0); pos < stat.Size(); {
+		if err := ctx.Err(); err != nil {
+			return nil, MP4Info{}, err
+		}
 		var header [16]byte
 		if _, err := f.ReadAt(header[:8], pos); err != nil {
 			return nil, MP4Info{}, fmt.Errorf("telemetry: read MP4 atom: %w", err)
@@ -107,6 +113,9 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 			return nil, MP4Info{}, fmt.Errorf("telemetry: invalid MP4 atom size")
 		}
 		if string(header[4:8]) == "moov" {
+			if err := MetadataAllocation(ctx, int64(size-skip)); err != nil {
+				return nil, MP4Info{}, err
+			}
 			if size-skip > 64<<20 {
 				return nil, MP4Info{}, fmt.Errorf("telemetry: MP4 metadata exceeds 64 MiB")
 			}
@@ -121,7 +130,7 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 	if moov == nil {
 		return nil, MP4Info{}, fmt.Errorf("telemetry: MP4 has no movie metadata")
 	}
-	tracks, err := mp4Boxes(moov)
+	tracks, err := mp4Boxes(ctx, moov)
 	if err != nil {
 		return nil, MP4Info{}, err
 	}
@@ -129,14 +138,23 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 	var telemetryTracks [][]byte
 	var textTracks []mp4Box
 	for _, track := range tracks {
+		if err := ctx.Err(); err != nil {
+			return nil, info, err
+		}
 		if track.kind != "trak" {
 			continue
 		}
-		stsd, err := childBox(track.data, "mdia", "minf", "stbl", "stsd")
+		stsd, err := childBox(ctx, track.data, "mdia", "minf", "stbl", "stsd")
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, info, ctxErr
+		}
+		if errors.Is(err, ErrAnalysisLimit) {
+			return nil, info, err
+		}
 		if err != nil || len(stsd) < 16 {
 			continue
 		}
-		descriptions, err := mp4Boxes(stsd[8:])
+		descriptions, err := mp4Boxes(ctx, stsd[8:])
 		if err != nil {
 			return nil, info, fmt.Errorf("telemetry: invalid sample descriptions: %w", err)
 		}
@@ -155,7 +173,7 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 				info.Codec = "h265"
 			}
 			if description.kind == "avc1" || description.kind == "avc3" || description.kind == "hvc1" || description.kind == "hev1" {
-				if err := readVideoInfo(track.data, description.data, &info); err != nil {
+				if err := readVideoInfo(ctx, track.data, description.data, &info); err != nil {
 					return nil, info, err
 				}
 			}
@@ -173,6 +191,9 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 			}
 		}
 		if info.Codec != "" && info.DurationS > 0 {
+			if err := ctx.Err(); err != nil {
+				return nil, info, err
+			}
 			return nil, info, ErrNoTelemetry
 		}
 		return nil, info, fmt.Errorf("telemetry: no supported video or DJI telemetry track")
@@ -200,8 +221,8 @@ func ExtractMP4(ctx context.Context, path string) ([]Frame, MP4Info, error) {
 type sampleChunk struct{ first, count uint32 }
 type sampleTiming struct{ count, delta uint32 }
 
-func readVideoInfo(track, description []byte, info *MP4Info) error {
-	mdhd, err := childBox(track, "mdia", "mdhd")
+func readVideoInfo(ctx context.Context, track, description []byte, info *MP4Info) error {
+	mdhd, err := childBox(ctx, track, "mdia", "mdhd")
 	if err != nil {
 		return err
 	}
@@ -227,16 +248,25 @@ func readVideoInfo(track, description []byte, info *MP4Info) error {
 	if len(description) >= 28 {
 		info.Width, info.Height = int(binary.BigEndian.Uint16(description[24:])), int(binary.BigEndian.Uint16(description[26:]))
 	}
-	stts, err := childBox(track, "mdia", "minf", "stbl", "stts")
+	stts, err := childBox(ctx, track, "mdia", "minf", "stbl", "stts")
+	if stopped := analysisStopped(ctx, err); stopped != nil {
+		return stopped
+	}
 	if err != nil || len(stts) < 8 {
 		return fmt.Errorf("telemetry: missing video sample timing")
 	}
 	count := binary.BigEndian.Uint32(stts[4:])
+	if err := checkTableCount(ctx, uint64(count)); err != nil {
+		return err
+	}
 	if uint64(count)*8 > uint64(len(stts)-8) {
 		return fmt.Errorf("telemetry: truncated video sample timing")
 	}
 	var samples, ticks uint64
 	for i := uint32(0); i < count; i++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		p := stts[8+int(i)*8:]
 		n, d := uint64(binary.BigEndian.Uint32(p)), uint64(binary.BigEndian.Uint32(p[4:]))
 		if n*d > ^uint64(0)-ticks {
@@ -253,7 +283,7 @@ func readVideoInfo(track, description []byte, info *MP4Info) error {
 
 func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []byte, kind string) ([]Frame, string, error) {
 	text := kind != "djmd"
-	mdhd, err := childBox(track, "mdia", "mdhd")
+	mdhd, err := childBox(ctx, track, "mdia", "mdhd")
 	if err != nil {
 		return nil, "", err
 	}
@@ -268,11 +298,14 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	if scale == 0 {
 		return nil, "", fmt.Errorf("telemetry: invalid media timescale")
 	}
-	stbl, err := childBox(track, "mdia", "minf", "stbl")
+	stbl, err := childBox(ctx, track, "mdia", "minf", "stbl")
 	if err != nil {
 		return nil, "", err
 	}
-	sizesData, err := childBox(stbl, "stsz")
+	sizesData, err := childBox(ctx, stbl, "stsz")
+	if stopped := analysisStopped(ctx, err); stopped != nil {
+		return nil, "", stopped
+	}
 	if err != nil || len(sizesData) < 12 {
 		return nil, "", fmt.Errorf("telemetry: missing or truncated sample sizes")
 	}
@@ -280,10 +313,31 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	if count == 0 || count > 2_000_000 || (constant == 0 && uint64(count)*4 > uint64(len(sizesData)-12)) {
 		return nil, "", fmt.Errorf("telemetry: invalid sample count")
 	}
-	offsets, err := childBox(stbl, "stco")
+	if err := checkTableCount(ctx, uint64(count)); err != nil {
+		return nil, "", err
+	}
+	metadataSize := uint64(constant) * uint64(count)
+	if constant == 0 {
+		for i := uint32(0); i < count; i++ {
+			if err := ctx.Err(); err != nil {
+				return nil, "", err
+			}
+			metadataSize += uint64(binary.BigEndian.Uint32(sizesData[12+int(i)*4:]))
+		}
+	}
+	if err := CheckMetadataSize(ctx, int64(metadataSize)); err != nil {
+		return nil, "", err
+	}
+	offsets, err := childBox(ctx, stbl, "stco")
+	if stopped := analysisStopped(ctx, err); stopped != nil {
+		return nil, "", stopped
+	}
 	width := 4
 	if err != nil {
-		offsets, err = childBox(stbl, "co64")
+		offsets, err = childBox(ctx, stbl, "co64")
+		if stopped := analysisStopped(ctx, err); stopped != nil {
+			return nil, "", stopped
+		}
 		width = 8
 	}
 	if err != nil || len(offsets) < 8 {
@@ -293,7 +347,10 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	if uint64(chunkCount)*uint64(width) > uint64(len(offsets)-8) {
 		return nil, "", fmt.Errorf("telemetry: truncated chunk offsets")
 	}
-	chunksData, err := childBox(stbl, "stsc")
+	chunksData, err := childBox(ctx, stbl, "stsc")
+	if stopped := analysisStopped(ctx, err); stopped != nil {
+		return nil, "", stopped
+	}
 	if err != nil || len(chunksData) < 8 {
 		return nil, "", fmt.Errorf("telemetry: missing sample-to-chunk table")
 	}
@@ -301,15 +358,26 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	if entryCount == 0 || uint64(entryCount)*12 > uint64(len(chunksData)-8) {
 		return nil, "", fmt.Errorf("telemetry: invalid sample-to-chunk table")
 	}
+	for _, entries := range []uint32{count, chunkCount, entryCount} {
+		if err := checkTableCount(ctx, uint64(entries)); err != nil {
+			return nil, "", err
+		}
+	}
 	chunks := make([]sampleChunk, entryCount)
 	for i := range chunks {
+		if err := ctx.Err(); err != nil {
+			return nil, "", err
+		}
 		p := chunksData[8+i*12:]
 		chunks[i] = sampleChunk{binary.BigEndian.Uint32(p), binary.BigEndian.Uint32(p[4:])}
 		if chunks[i].count == 0 || (i == 0 && chunks[i].first != 1) || (i > 0 && chunks[i].first <= chunks[i-1].first) {
 			return nil, "", fmt.Errorf("telemetry: invalid chunk layout")
 		}
 	}
-	timesData, err := childBox(stbl, "stts")
+	timesData, err := childBox(ctx, stbl, "stts")
+	if stopped := analysisStopped(ctx, err); stopped != nil {
+		return nil, "", stopped
+	}
 	if err != nil || len(timesData) < 8 {
 		return nil, "", fmt.Errorf("telemetry: missing sample timing")
 	}
@@ -317,9 +385,15 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 	if timeCount == 0 || uint64(timeCount)*8 > uint64(len(timesData)-8) {
 		return nil, "", fmt.Errorf("telemetry: invalid sample timing")
 	}
+	if err := checkTableCount(ctx, uint64(timeCount)); err != nil {
+		return nil, "", err
+	}
 	times := make([]sampleTiming, timeCount)
 	var timingSamples uint64
 	for i := range times {
+		if err := ctx.Err(); err != nil {
+			return nil, "", err
+		}
 		p := timesData[8+i*8:]
 		times[i] = sampleTiming{binary.BigEndian.Uint32(p), binary.BigEndian.Uint32(p[4:])}
 		if times[i].count == 0 {
@@ -349,12 +423,18 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 			offset = binary.BigEndian.Uint64(p)
 		}
 		for j := uint32(0); j < chunks[chunkEntry].count && sample < count; j++ {
+			if err := ctx.Err(); err != nil {
+				return nil, protocol, err
+			}
 			size := constant
 			if size == 0 {
 				size = binary.BigEndian.Uint32(sizesData[12+int(sample)*4:])
 			}
 			if size == 0 || size > 4<<20 || offset > uint64(fileSize) || uint64(size) > uint64(fileSize)-offset {
 				return nil, protocol, fmt.Errorf("telemetry: invalid DJI sample boundary")
+			}
+			if err := MetadataAllocation(ctx, int64(size)); err != nil {
+				return nil, protocol, err
 			}
 			data := make([]byte, size)
 			if _, err := r.ReadAt(data, int64(offset)); err != nil {
@@ -377,7 +457,10 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 				} else {
 					return nil, protocol, fmt.Errorf("telemetry: invalid timed text length")
 				}
-				parsed, parseErr := ParseSRT(strings.NewReader("1\n00:00:00,000 --> 00:00:01,000\n" + string(payload)))
+				parsed, parseErr := parseSRT(ctx, strings.NewReader("1\n00:00:00,000 --> 00:00:01,000\n"+string(payload)), false)
+				if stopped := analysisStopped(ctx, parseErr); stopped != nil {
+					return nil, protocol, stopped
+				}
 				if parseErr != nil && (srtGPSRE.Match(payload) || srtKeyRE.Match(payload)) {
 					return nil, protocol, fmt.Errorf("telemetry: timed DJI subtitle: %w", parseErr)
 				}
@@ -385,12 +468,12 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 					frame, hasFrame, nextProtocol = parsed[0], true, "dji_text"
 				}
 			} else {
-				frame, nextProtocol, hasFrame, err = decodeDJI(data, protocol)
+				frame, nextProtocol, hasFrame, err = decodeDJIContext(ctx, data, protocol)
 				if err != nil {
 					return nil, protocol, fmt.Errorf("telemetry: DJI sample %d: %w", sample, err)
 				}
 				protocol = nextProtocol
-				additional, err := djiAdditional(data, protocol)
+				additional, err := djiAdditionalContext(ctx, data, protocol)
 				if err != nil {
 					return nil, protocol, fmt.Errorf("telemetry: additional fields: %w", err)
 				}
@@ -407,6 +490,9 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 				}
 			}
 			if hasFrame {
+				if err := CheckFrameCount(ctx, len(frames)+1); err != nil {
+					return nil, protocol, err
+				}
 				nanoseconds := float64(ticks) / float64(scale) * float64(time.Second)
 				if nanoseconds >= float64(int64(^uint64(0)>>1)) {
 					return nil, protocol, fmt.Errorf("telemetry: sample time exceeds supported duration")
@@ -431,4 +517,14 @@ func readDJITrack(ctx context.Context, r io.ReaderAt, fileSize int64, track []by
 		return nil, protocol, fmt.Errorf("telemetry: DJI track contains no telemetry frames")
 	}
 	return frames, protocol, nil
+}
+
+func analysisStopped(ctx context.Context, err error) error {
+	if stopped := ctx.Err(); stopped != nil {
+		return stopped
+	}
+	if errors.Is(err, ErrAnalysisLimit) {
+		return err
+	}
+	return nil
 }

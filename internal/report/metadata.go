@@ -1,6 +1,7 @@
 package report
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -27,6 +28,13 @@ func MetadataJSON(
 
 // MetadataData encodes the same document as MetadataJSON without writing a file.
 func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoName, codec string) ([]byte, error) {
+	return MetadataDataContext(context.Background(), frames, stats, videoName, codec)
+}
+
+func MetadataDataContext(ctx context.Context, frames []telemetry.Frame, stats telemetry.FlightStats, videoName, codec string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	type frameRecord struct {
 		Additional       map[string]any          `json:"additional,omitempty"`
 		TimeSec          float64                 `json:"time_s"`
@@ -125,6 +133,9 @@ func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoNa
 
 	fr := make([]frameRecord, 0, len(frames))
 	for _, f := range frames {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		rec := frameRecord{
 			TimeSec:          f.SampleTime.Seconds(),
 			Additional:       f.Additional,
@@ -157,9 +168,15 @@ func MetadataData(frames []telemetry.Frame, stats telemetry.FlightStats, videoNa
 		Frames:    fr,
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	data, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("report: marshal metadata JSON: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return data, nil
 }

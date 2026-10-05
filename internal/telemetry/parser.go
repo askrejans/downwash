@@ -325,8 +325,16 @@ func ParseDMSCoord(s string) (float64, error) {
 // calculations. This filters both teleportation artefacts and GPS
 // acquisition noise at the start of a flight.
 func ComputeStats(frames []Frame) FlightStats {
+	stats, _ := ComputeStatsContext(context.Background(), frames)
+	return stats
+}
+
+func ComputeStatsContext(ctx context.Context, frames []Frame) (FlightStats, error) {
+	if err := ctx.Err(); err != nil {
+		return FlightStats{}, err
+	}
 	if len(frames) == 0 {
-		return FlightStats{Available: &Availability{}}
+		return FlightStats{Available: &Availability{}}, nil
 	}
 
 	s := FlightStats{
@@ -345,6 +353,9 @@ func ComputeStats(frames []Frame) FlightStats {
 
 	// ── Per-frame stats (altitude, attitude, home distance) ─────────────
 	for i, f := range frames {
+		if err := ctx.Err(); err != nil {
+			return FlightStats{}, err
+		}
 		a := f.Available
 		if a == nil {
 			a = &Availability{GPS: ValidGPS(f.Lat, f.Lon), AltASL: true, AltRelative: true, Attitude: true, Gimbal: true, Camera: true}
@@ -463,6 +474,9 @@ func ComputeStats(frames []Frame) FlightStats {
 	hasBucket := false
 
 	for _, f := range frames {
+		if err := ctx.Err(); err != nil {
+			return FlightStats{}, err
+		}
 		if !ValidGPS(f.Lat, f.Lon) {
 			continue
 		}
@@ -501,5 +515,5 @@ func ComputeStats(frames []Frame) FlightStats {
 	if s.Duration.Seconds() > 0 {
 		s.AvgSpeedMS = s.DistanceM / s.Duration.Seconds()
 	}
-	return s
+	return s, nil
 }

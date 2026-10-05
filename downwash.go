@@ -31,6 +31,10 @@ type FlightStats = telemetry.FlightStats
 // Availability identifies measurements recorded in a telemetry frame.
 type Availability = telemetry.Availability
 
+type AnalysisLimits = telemetry.AnalysisLimits
+
+var ErrAnalysisLimit = telemetry.ErrAnalysisLimit
+
 // Request configures offline exports. All formats are enabled by default.
 type Request struct {
 	InputPath     string `json:"input_path"`
@@ -61,6 +65,7 @@ type Response struct {
 	Available map[string]bool   `json:"available"`
 	Video     *VideoInfo        `json:"video,omitempty"`
 	Error     string            `json:"error,omitempty"`
+	ErrorCode string            `json:"error_code,omitempty"`
 }
 
 // VideoInfo contains movie measurements independent of flight telemetry.
@@ -92,6 +97,27 @@ func Analyze(ctx context.Context, inputPath string) (Response, error) {
 		return a.response, nil
 	}
 	return a.response, err
+}
+
+// AnalyzeWithLimits optionally bounds metadata and retained frames. Video media
+// is read by random access and does not count against MaxMetadataBytes.
+func AnalyzeWithLimits(ctx context.Context, inputPath string, limits AnalysisLimits) (Response, error) {
+	if limits.MaxFrames < 0 || limits.MaxMetadataBytes < 0 {
+		return Response{}, fmt.Errorf("downwash: analysis limits must be nonnegative")
+	}
+	return Analyze(telemetry.WithAnalysisLimits(ctx, limits), inputPath)
+}
+
+func AnalyzeWithLimitsJSON(ctx context.Context, inputPath string, limits AnalysisLimits) string {
+	r, err := AnalyzeWithLimits(ctx, inputPath, limits)
+	if stopped := ctx.Err(); stopped != nil {
+		return encodeResponse(Response{}, stopped)
+	}
+	encoded := encodeResponse(r, err)
+	if stopped := ctx.Err(); stopped != nil {
+		return encodeResponse(Response{}, stopped)
+	}
+	return encoded
 }
 
 // Process analyses a source and writes the requested reports, charts and tracks.
@@ -202,6 +228,12 @@ func encodeResponse(r Response, err error) string {
 	}
 	if err != nil {
 		r.Error = err.Error()
+		if errors.Is(err, ErrAnalysisLimit) {
+			r.ErrorCode = "resource_limit"
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			r.ErrorCode = "cancelled"
+		}
 	}
 	data, marshalErr := json.Marshal(r)
 	if marshalErr != nil {
@@ -239,12 +271,19 @@ func readAnalysis(ctx context.Context, request Request) (analysis, error) {
 		f, err = os.Open(request.InputPath)
 		if err == nil {
 			defer f.Close()
-			a.frames, err = telemetry.ParseSRT(f)
+			var info os.FileInfo
+			info, err = f.Stat()
+			if err == nil {
+				err = telemetry.CheckMetadataSize(ctx, info.Size())
+			}
+			if err == nil {
+				a.frames, err = telemetry.ParseSRTContext(ctx, f)
+			}
 		}
 		a.response.Format = "dji_srt"
 		a.response.Warnings = append(a.response.Warnings, "SRT may omit attitude, gimbal, camera settings, or absolute altitude. Only data present in the source can be extracted.")
 	case ".json":
-		a.frames, err = readMetadata(request.InputPath)
+		a.frames, err = readMetadataContext(ctx, request.InputPath)
 		a.response.Format = "downwash_json"
 	default:
 		err = fmt.Errorf("supported sources are DJI MP4/MOV/LRF, bracketed DJI SRT, and Downwash metadata JSON")
@@ -256,6 +295,9 @@ func readAnalysis(ctx context.Context, request Request) (analysis, error) {
 		return a, fmt.Errorf("downwash: source contains no telemetry")
 	}
 	for i := range a.frames {
+		if err := ctx.Err(); err != nil {
+			return a, err
+		}
 		f := &a.frames[i]
 		if !telemetry.ValidGPS(f.Lat, f.Lon) || (f.Available != nil && !f.Available.GPS) {
 			f.Lat, f.Lon = 0, 0
@@ -279,6 +321,9 @@ func readAnalysis(ctx context.Context, request Request) (analysis, error) {
 		start, end := time.Duration(request.StartOffsetMS)*time.Millisecond, a.frames[len(a.frames)-1].SampleTime-time.Duration(request.EndTrimMS)*time.Millisecond
 		var trimmed []Frame
 		for _, f := range a.frames {
+			if err := ctx.Err(); err != nil {
+				return a, err
+			}
 			if f.SampleTime >= start && f.SampleTime <= end {
 				trimmed = append(trimmed, f)
 			}
@@ -288,9 +333,18 @@ func readAnalysis(ctx context.Context, request Request) (analysis, error) {
 		}
 		a.frames = trimmed
 	}
-	a.stats = telemetry.ComputeStats(a.frames)
+	a.stats, err = telemetry.ComputeStatsContext(ctx, a.frames)
+	if err != nil {
+		return a, err
+	}
+	if err := ctx.Err(); err != nil {
+		return a, err
+	}
 	a.response.Available = map[string]bool{"gps": false, "alt_asl": false, "alt_relative": false, "attitude": false, "gimbal": false, "camera": false}
 	for _, frame := range a.frames {
+		if err := ctx.Err(); err != nil {
+			return a, err
+		}
 		available := frame.Available
 		if available == nil {
 			available = &telemetry.Availability{GPS: telemetry.ValidGPS(frame.Lat, frame.Lon), AltASL: true, AltRelative: true, Attitude: true, Gimbal: true, Camera: frame.ISO > 0 || frame.ShutterSpeed != "" || frame.FNumber > 0 || frame.ColorTemperature > 0}
@@ -302,8 +356,11 @@ func readAnalysis(ctx context.Context, request Request) (analysis, error) {
 	if a.stats.GPSPointCount == 0 {
 		a.response.Warnings = append(a.response.Warnings, "No valid GPS fixes; track and distance are unavailable.")
 	}
-	data, err := report.MetadataData(a.frames, a.stats, a.response.Source, a.codec)
+	data, err := report.MetadataDataContext(ctx, a.frames, a.stats, a.response.Source, a.codec)
 	if err != nil {
+		return a, err
+	}
+	if err := ctx.Err(); err != nil {
 		return a, err
 	}
 	var document struct {
@@ -317,7 +374,7 @@ func readAnalysis(ctx context.Context, request Request) (analysis, error) {
 	return a, nil
 }
 
-func readMetadata(path string) ([]Frame, error) {
+func readMetadataContext(ctx context.Context, path string) ([]Frame, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -327,37 +384,104 @@ func readMetadata(path string) ([]Frame, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := telemetry.CheckMetadataSize(ctx, info.Size()); err != nil {
+		return nil, err
+	}
 	if info.Size() > 128<<20 {
 		return nil, fmt.Errorf("metadata JSON exceeds 128 MiB")
 	}
-	var document struct {
-		Version string `json:"version"`
-		Frames  []struct {
-			Additional  map[string]any          `json:"additional"`
-			TimeSec     *float64                `json:"time_s"`
-			GPSTime     string                  `json:"gps_time"`
-			Lat         float64                 `json:"lat"`
-			Lon         float64                 `json:"lon"`
-			AltASL      *float64                `json:"alt_asl_m"`
-			AltAGL      *float64                `json:"alt_agl_m"`
-			Roll        *float64                `json:"roll_deg"`
-			Pitch       *float64                `json:"pitch_deg"`
-			Yaw         *float64                `json:"yaw_deg"`
-			GimbalPitch *float64                `json:"gimbal_pitch_deg"`
-			GimbalYaw   *float64                `json:"gimbal_yaw_deg"`
-			ISO         int                     `json:"iso"`
-			Shutter     string                  `json:"shutter_speed"`
-			FNumber     float64                 `json:"f_number"`
-			Color       int                     `json:"color_temp_k"`
-			Available   *telemetry.Availability `json:"available"`
-		} `json:"frames"`
+	type metadataFrame struct {
+		Additional  map[string]any          `json:"additional"`
+		TimeSec     *float64                `json:"time_s"`
+		GPSTime     string                  `json:"gps_time"`
+		Lat         float64                 `json:"lat"`
+		Lon         float64                 `json:"lon"`
+		AltASL      *float64                `json:"alt_asl_m"`
+		AltAGL      *float64                `json:"alt_agl_m"`
+		Roll        *float64                `json:"roll_deg"`
+		Pitch       *float64                `json:"pitch_deg"`
+		Yaw         *float64                `json:"yaw_deg"`
+		GimbalPitch *float64                `json:"gimbal_pitch_deg"`
+		GimbalYaw   *float64                `json:"gimbal_yaw_deg"`
+		ISO         int                     `json:"iso"`
+		Shutter     string                  `json:"shutter_speed"`
+		FNumber     float64                 `json:"f_number"`
+		Color       int                     `json:"color_temp_k"`
+		Available   *telemetry.Availability `json:"available"`
 	}
-	decoder := json.NewDecoder(io.LimitReader(f, 128<<20))
-	if err := decoder.Decode(&document); err != nil {
+	var document struct {
+		Version string
+		Frames  []metadataFrame
+	}
+	if err := telemetry.ValidateMetadataJSON(ctx, f); err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	decoder := json.NewDecoder(telemetry.AnalysisReader(ctx, io.LimitReader(f, 128<<20)))
+	token, err := decoder.Token()
+	if err != nil {
 		return nil, fmt.Errorf("decode metadata JSON: %w", err)
 	}
+	if token != json.Delim('{') {
+		return nil, fmt.Errorf("expected metadata JSON object")
+	}
+	for decoder.More() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected metadata JSON property")
+		}
+		switch strings.ToLower(key) {
+		case "version":
+			if err := decoder.Decode(&document.Version); err != nil {
+				return nil, err
+			}
+		case "frames":
+			token, err := decoder.Token()
+			if err != nil {
+				return nil, err
+			}
+			if token != json.Delim('[') {
+				return nil, fmt.Errorf("expected metadata frames array")
+			}
+			document.Frames = nil
+			for decoder.More() {
+				if err := telemetry.CheckFrameCount(ctx, len(document.Frames)+1); err != nil {
+					return nil, err
+				}
+				var record metadataFrame
+				if err := decoder.Decode(&record); err != nil {
+					return nil, fmt.Errorf("decode metadata frame: %w", err)
+				}
+				document.Frames = append(document.Frames, record)
+			}
+			if _, err := decoder.Token(); err != nil {
+				return nil, err
+			}
+		default:
+			var ignored json.RawMessage
+			if err := decoder.Decode(&ignored); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err != nil {
+			return nil, fmt.Errorf("read metadata JSON: %w", err)
+		}
 		return nil, fmt.Errorf("metadata JSON contains trailing data")
 	}
 	if document.Version != "1.0" || len(document.Frames) == 0 {
@@ -371,6 +495,9 @@ func readMetadata(path string) ([]Frame, error) {
 		return *p
 	}
 	for _, rec := range document.Frames {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if rec.TimeSec == nil {
 			return nil, fmt.Errorf("metadata frame is missing time_s")
 		}

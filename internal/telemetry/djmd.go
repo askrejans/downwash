@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -21,8 +22,15 @@ type protoValue struct {
 }
 
 func protoFields(data []byte) (map[uint64]protoValue, error) {
+	return protoFieldsContext(context.Background(), data)
+}
+
+func protoFieldsContext(ctx context.Context, data []byte) (map[uint64]protoValue, error) {
 	fields := make(map[uint64]protoValue)
 	for len(data) > 0 {
+		if err := checkTableCount(ctx, uint64(len(fields)+1)); err != nil {
+			return nil, err
+		}
 		tag, n := binary.Uvarint(data)
 		if n <= 0 || tag>>3 == 0 {
 			return nil, fmt.Errorf("invalid protobuf tag")
@@ -61,9 +69,13 @@ func protoFields(data []byte) (map[uint64]protoValue, error) {
 }
 
 func protoAt(data []byte, path ...uint64) (protoValue, error) {
+	return protoAtContext(context.Background(), data, path...)
+}
+
+func protoAtContext(ctx context.Context, data []byte, path ...uint64) (protoValue, error) {
 	var value protoValue
 	for _, field := range path {
-		fields, err := protoFields(data)
+		fields, err := protoFieldsContext(ctx, data)
 		if err != nil {
 			return protoValue{}, err
 		}
@@ -140,7 +152,11 @@ var djiLayouts = map[string]djiLayout{
 }
 
 func decodeDJI(data []byte, previousProtocol string) (Frame, string, bool, error) {
-	fields, err := protoFields(data)
+	return decodeDJIContext(context.Background(), data, previousProtocol)
+}
+
+func decodeDJIContext(ctx context.Context, data []byte, previousProtocol string) (Frame, string, bool, error) {
+	fields, err := protoFieldsContext(ctx, data)
 	if err != nil {
 		return Frame{}, previousProtocol, false, err
 	}
@@ -158,7 +174,7 @@ func decodeDJI(data []byte, previousProtocol string) (Frame, string, bool, error
 	loc := layout.location
 	var pathErr error
 	get := func(path ...uint64) protoValue {
-		value, err := protoAt(data, path...)
+		value, err := protoAtContext(ctx, data, path...)
 		if err != nil && pathErr == nil {
 			pathErr = err
 		}
