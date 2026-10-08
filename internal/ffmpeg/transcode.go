@@ -15,6 +15,9 @@ import (
 
 // Options configures a transcode operation.
 type Options struct {
+	// NoOverwrite preserves any existing destination; MCP always enables this.
+	NoOverwrite bool
+
 	InputPath  string
 	OutputPath string
 	// Codec is "h264" (→ libx264) or "h265" (→ libx265). Default: "h264".
@@ -109,6 +112,9 @@ func Transcode(ctx context.Context, opts Options) error {
 	}
 
 	args := []string{"-y"}
+	if opts.NoOverwrite {
+		args[0] = "-n"
+	}
 	args = append(args, preInputArgs...)
 	args = append(args,
 		"-i", opts.InputPath)

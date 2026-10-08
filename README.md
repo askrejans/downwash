@@ -93,6 +93,14 @@ Requires **Go 1.27.1+**.
 
 ---
 
+## MCP and LLM automation
+
+Use `downwash mcp` as a local stdio MCP server. It exposes source discovery,
+full telemetry, every report format, batch exports and video trimming/compression.
+An optional Streamable HTTP service accepts explicit uploads while rejecting
+server filesystem paths. See the [MCP guide](docs/mcp.md) for setup, tool schemas,
+transport limits and authentication.
+
 ## Quick start
 
 downwash auto-detects what you give it — a file, a directory, or nothing — and

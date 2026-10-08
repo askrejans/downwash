@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/askrejans/downwash/internal/mcpserver"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
@@ -127,6 +131,28 @@ func newCommand() *cobra.Command {
 		return runFile(cmd.Context(), input)
 	}}
 	batch := &cobra.Command{Use: "batch directory", Short: "Process MP4 videos in a directory", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error { return runBatch(cmd.Context(), args[0]) }}
+	var listen string
+	var public bool
+	mcpCommand := &cobra.Command{Use: "mcp", Short: "Serve full local automation over MCP stdio, or uploaded telemetry over HTTP", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+		if listen == "" {
+			return mcpserver.New(version, true).Run(cmd.Context(), &mcp.StdioTransport{})
+		}
+		handler, err := mcpserver.Handler(version, os.Getenv("DOWNWASH_MCP_TOKEN"), public)
+		if err != nil {
+			return err
+		}
+		server := &http.Server{Addr: listen, Handler: handler, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 90 * time.Second, WriteTimeout: 120 * time.Second, IdleTimeout: 60 * time.Second}
+		go func() {
+			<-cmd.Context().Done()
+			shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = server.Shutdown(shutdown)
+		}()
+		return server.ListenAndServe()
+	}}
+	mcpCommand.Flags().StringVar(&listen, "listen", "", "Serve /mcp and /health over HTTP at an address such as 127.0.0.1:8080; deploy behind HTTPS")
+	mcpCommand.Flags().BoolVar(&public, "public", false, "Explicitly allow unauthenticated upload-only HTTP tools; local filesystem/video tools remain unavailable")
+	root.AddCommand(mcpCommand)
 	root.AddCommand(process, batch, &cobra.Command{Use: "version", Short: "Print version", Args: cobra.NoArgs, Run: func(cmd *cobra.Command, args []string) { fmt.Fprintln(cmd.OutOrStdout(), version) }})
 	return root
 }
