@@ -95,6 +95,14 @@ Requires **Go 1.27.1+**.
 
 ## MCP and LLM automation
 
+This is a separate GPL developer library and command-line processor. Its MCP
+server does not verify Apple, Google Play or Windows native app purchases and
+must not be presented as the licensed DownWash app connector. For app automation,
+use the installed app's `downwash-mcp` helper and official native connector; the
+app applies its normal free previews and Full Unlock. CrowFoundry's former
+public upload-only product endpoint has been retired with an app handoff.
+Self-hosting this developer server does not grant native app entitlement.
+
 Use `downwash mcp` as a local stdio MCP server. It exposes source discovery,
 full telemetry, every report format, batch exports and video trimming/compression.
 An optional Streamable HTTP service accepts explicit uploads while rejecting

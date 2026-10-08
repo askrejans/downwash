@@ -1,5 +1,13 @@
 # MCP automation
 
+This guide documents the separate GPL developer processor, not the native
+DownWash product connector. This server has no app purchase or licence verifier.
+The official app connector uses the installed `downwash-mcp` helper, with the
+app's normal previews, Full Unlock and consent. The former CrowFoundry public
+upload-only product endpoint is retired; do not describe this developer API as
+an app connection or a paid entitlement. Its library and self-hosting features
+remain available under their existing licence.
+
 `downwash mcp` starts the official Go MCP SDK's stdio transport. It implements
 all free open-source processing features: source discovery, analysis and full
 telemetry pagination, every report format, synchronized telemetry trimming,
